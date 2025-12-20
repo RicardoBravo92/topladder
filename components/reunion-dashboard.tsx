@@ -166,6 +166,7 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
     };
 
     const handleFinishMatch = async (winnerGroupId: string) => {
+        if (!activeMatch) return;
         await finishMatch(activeMatch._id, winnerGroupId);
         refresh();
     };
