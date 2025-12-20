@@ -3,7 +3,7 @@
 import { connectToDatabase } from "@/lib/database";
 import User from "@/lib/models/user.model";
 
-export async function createUser(user: any) {
+export async function createUser(user: { clerkId: string; email: string; username: string; photo: string }) {
   try {
     await connectToDatabase();
     const newUser = await User.create(user);

@@ -10,10 +10,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { UserPlus, UserCheck, UserX, Search, Users } from "lucide-react";
 
-export function FriendsManager({ currentUser }: { currentUser: any }) {
-    const [friends, setFriends] = useState<any[]>([]);
-    const [pending, setPending] = useState<any[]>([]);
-    const [reunionInvites, setReunionInvites] = useState<any[]>([]);
+interface Player {
+    _id: string;
+    username: string;
+    photo: string;
+}
+
+interface FriendRequest {
+    _id: string;
+    requester: Player;
+}
+
+interface ReunionInvite {
+    _id: string;
+    inviter: Player;
+    reunion: {
+        _id: string;
+        name: string;
+    };
+}
+
+
+export function FriendsManager({ currentUser }: { currentUser: Player }) {
+    const [friends, setFriends] = useState<Player[]>([]);
+    const [pending, setPending] = useState<FriendRequest[]>([]);
+    const [reunionInvites, setReunionInvites] = useState<ReunionInvite[]>([]);
     const [email, setEmail] = useState("");
     const [loading, setLoading] = useState(false);
     const router = useRouter();
@@ -42,8 +63,9 @@ export function FriendsManager({ currentUser }: { currentUser: any }) {
             await sendFriendRequest(currentUser._id, email);
             alert("Request sent!");
             setEmail("");
-        } catch (e: any) {
-            alert(e.message);
+        } catch (e: unknown) {
+            const error = e as Error;
+            alert(error.message);
         } finally {
             setLoading(false);
         }
@@ -90,7 +112,7 @@ export function FriendsManager({ currentUser }: { currentUser: any }) {
                         <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                             Pending Requests <Badge variant="destructive" className="h-5 w-5 flex items-center justify-center p-0">{pending.length}</Badge>
                         </h4>
-                        {pending.map((r: any) => (
+                        {pending.map((r: FriendRequest) => (
                             <div key={r._id} className="flex items-center justify-between p-2 rounded-lg bg-primary/5 border border-primary/10">
                                 <div className="flex items-center gap-2">
                                     <Avatar className="h-8 w-8">
@@ -118,7 +140,7 @@ export function FriendsManager({ currentUser }: { currentUser: any }) {
                         <h4 className="text-sm font-semibold text-purple-400 flex items-center gap-2">
                             Reunion Invites <Badge className="bg-purple-500 h-5 w-5 flex items-center justify-center p-0">{reunionInvites.length}</Badge>
                         </h4>
-                        {reunionInvites.map((ri: any) => (
+                        {reunionInvites.map((ri: ReunionInvite) => (
                             <div key={ri._id} className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 space-y-2">
                                 <p className="text-xs text-muted-foreground">
                                     <span className="font-bold text-foreground">{ri.inviter.username}</span> invited you to <span className="text-purple-400">"{ri.reunion.name}"</span>
@@ -140,7 +162,7 @@ export function FriendsManager({ currentUser }: { currentUser: any }) {
                 <div className="space-y-3">
                     <h4 className="text-sm font-semibold text-muted-foreground">My Friends</h4>
                     <div className="grid grid-cols-1 gap-2">
-                        {friends.map((f: any) => (
+                        {friends.map((f: Player) => (
                             <div key={f._id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/20 transition-colors">
                                 <Avatar className="h-8 w-8">
                                     <AvatarImage src={f.photo} />

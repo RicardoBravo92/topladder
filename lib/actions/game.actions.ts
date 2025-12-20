@@ -19,7 +19,7 @@ export async function createGroup(reunionId: string, playerIds: string[]) {
         // 2. Remove players from Bench
         const bench = await Bench.findOne({ reunion: reunionId });
         if (bench) {
-            bench.players = bench.players.filter((p: any) => !playerIds.includes(p.toString()));
+            bench.players = bench.players.filter((p: { toString: () => string }) => !playerIds.includes(p.toString()));
             await bench.save();
         }
 
@@ -123,7 +123,7 @@ export async function finishMatch(matchId: string, winnerGroupId: string) {
             // However, we must ensure we don't pick the loser immediately if they are the only ones.
             // If queue has only the loser, then they play again immediately.
             
-            const nextOpponent = queue.groups.shift(); // Take from head
+            const nextOpponent = queue.groups.shift()!; 
             
             // Create new match
             await Match.create({
@@ -134,11 +134,6 @@ export async function finishMatch(matchId: string, winnerGroupId: string) {
             });
             await queue.save();
         } else {
-            // No one to play. Winner waits.
-            // We could just leave it as no active match, or put winner in a "Holding" state.
-            // For now, do nothing. User can manually start or we auto-queue winner?
-            // Ideally, put winner at head of queue? Or just let them sit.
-            // Let's Add winner to HEAD of queue so they represent "Waiting King".
             queue.groups.unshift(winnerGroupId);
             await queue.save();
         }

@@ -27,6 +27,19 @@ interface UserGroup {
     members: Player[];
 }
 
+interface FriendRequest {
+    _id: string;
+    requester: Player;
+}
+
+interface MatchData {
+    _id: string;
+    groupA: UserGroup;
+    groupB: UserGroup;
+    status: string;
+    winner?: string;
+}
+
 interface ReunionData {
     reunion: {
         _id: string;
@@ -38,7 +51,7 @@ interface ReunionData {
     bench: { players: Player[] };
     groups: UserGroup[];
     queue: { groups: UserGroup[] };
-    activeMatch: any;
+    activeMatch: MatchData | null;
 }
 
 
@@ -53,7 +66,7 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
     const [createGroupOpen, setCreateGroupOpen] = useState(false);
 
     const [friends, setFriends] = useState<Player[]>([]);
-    const [pendingFriendRequests, setPendingFriendRequests] = useState<any[]>([]);
+    const [pendingFriendRequests, setPendingFriendRequests] = useState<FriendRequest[]>([]);
     const [friendshipStatuses, setFriendshipStatuses] = useState<Record<string, string>>({});
     const [inviteOpen, setInviteOpen] = useState(false);
     const [socialOpen, setSocialOpen] = useState(false);
@@ -75,8 +88,8 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
             setPendingFriendRequests(p);
             
             const allPlayerIds = [
-                ...data.bench.players.map((p: any) => p._id),
-                ...data.groups.flatMap((g: any) => g.members.map((m: any) => m._id))
+                ...data.bench.players.map((p: Player) => p._id),
+                ...data.groups.flatMap((g: UserGroup) => g.members.map((m: Player) => m._id))
             ];
             const statuses = await getFriendshipStatuses(currentUser._id, allPlayerIds);
             setFriendshipStatuses(statuses);
@@ -96,12 +109,13 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
         if(fresh) setData(fresh);
     };
 
-    const handleInvite = async (friend: any) => {
+    const handleInvite = async (friend: Player) => {
         try {
             await sendReunionInvite(reunion._id, currentUser._id, friend._id);
             alert(`Invite sent to ${friend.username}!`);
-        } catch (e: any) {
-            alert(e.message);
+        } catch (e: unknown) {
+            const error = e as Error;
+            alert(error.message);
         }
     };
     
@@ -111,8 +125,9 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
             alert(`Friend request sent to ${targetName}!`);
             // Update local status
             setFriendshipStatuses(prev => ({ ...prev, [targetId]: "pending" }));
-        } catch (e: any) {
-            alert(e.message);
+        } catch (e: unknown) {
+            const error = e as Error;
+            alert(error.message);
         }
     };
 
@@ -126,8 +141,9 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
             ]);
             setFriends(f);
             setPendingFriendRequests(p);
-        } catch (e: any) {
-            alert(e.message);
+        } catch (e: unknown) {
+            const error = e as Error;
+            alert(error.message);
         }
     };
 
@@ -143,8 +159,9 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
         try {
             await startMatch(reunion._id);
             refresh();
-        } catch(e: any) { 
-            alert("Cannot start match: " + e.message); 
+        } catch(e: unknown) { 
+            const error = e as Error;
+            alert("Cannot start match: " + error.message); 
         }
     };
 
@@ -201,7 +218,7 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
                                         <div className="space-y-3">
                                             <h4 className="text-xs font-bold text-destructive uppercase tracking-wider">Friend Requests</h4>
                                             <div className="grid gap-2">
-                                                {pendingFriendRequests.map((r: any) => (
+                                                {pendingFriendRequests.map((r: FriendRequest) => (
                                                     <div key={r._id} className="flex items-center justify-between p-3 rounded-xl bg-destructive/5 border border-destructive/10">
                                                         <div className="flex items-center gap-3">
                                                             <Avatar className="h-8 w-8">
@@ -229,19 +246,19 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
                                         <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Players in Reunion</h4>
                                         <ScrollArea className="h-[200px] rounded-lg border border-border/50 p-2">
                                             <div className="grid gap-2">
-                                                {[...bench.players, ...groups.flatMap((g: any) => g.members)]
-                                                    .filter((p: any, i, self) => p._id !== currentUser._id && self.findIndex(s => s._id === p._id) === i)
-                                                    .map((p: any) => {
-                                                        const status = friendshipStatuses[p._id];
-                                                        return (
-                                                            <div key={p._id} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/10 transition-colors">
-                                                                <div className="flex items-center gap-2">
-                                                                    <Avatar className="h-8 w-8">
-                                                                        <AvatarImage src={p.photo} />
-                                                                        <AvatarFallback>{p.username[0]}</AvatarFallback>
-                                                                    </Avatar>
-                                                                    <span className="text-sm font-medium">{p.username}</span>
-                                                                </div>
+                                                {[...bench.players, ...groups.flatMap((g: UserGroup) => g.members)]
+                                            .filter((p: Player, i, self) => p._id !== currentUser._id && self.findIndex(s => s._id === p._id) === i)
+                                            .map((p: Player) => {
+                                                const status = friendshipStatuses[p._id];
+                                                return (
+                                                    <div key={p._id} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/10 transition-colors">
+                                                        <div className="flex items-center gap-2">
+                                                            <Avatar className="h-8 w-8">
+                                                                <AvatarImage src={p.photo} />
+                                                                <AvatarFallback>{p.username[0]}</AvatarFallback>
+                                                            </Avatar>
+                                                            <span className="text-sm font-medium">{p.username}</span>
+                                                        </div>
                                                                 {status === "accepted" ? (
                                                                     <Badge variant="secondary" className="gap-1 bg-green-500/10 text-green-500 border-green-500/20"><UserCheck className="h-3 w-3"/> Friends</Badge>
                                                                 ) : status === "pending" ? (
@@ -275,7 +292,7 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
                                 <DialogHeader><DialogTitle>Invite Your Friends</DialogTitle></DialogHeader>
                                 <div className="space-y-4 pt-4">
                                     <div className="grid gap-3">
-                                        {friends.map((f: any) => (
+                                        {friends.map((f: Player) => (
                                             <div key={f._id} className="flex items-center justify-between p-2 rounded-lg bg-secondary/20">
                                                 <div className="flex items-center gap-2">
                                                     <Avatar className="h-8 w-8">
@@ -323,7 +340,7 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
                         <CardContent className="flex-1 p-0">
                             <ScrollArea className="h-[300px] md:h-full px-4">
                                 <div className="space-y-3 py-2">
-                                    {bench.players.map((p: any) => (
+                                    {bench.players.map((p: Player) => (
                                         <div key={p._id} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/20 transition-colors group">
                                             <div className="flex items-center gap-3">
                                                 <Avatar className="h-8 w-8">
@@ -361,7 +378,7 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
                                     <Select onValueChange={setP1} value={p1}>
                                         <SelectTrigger><SelectValue placeholder="Select player" /></SelectTrigger>
                                         <SelectContent>
-                                            {bench.players.map((p: any) => (
+                                            {bench.players.map((p: Player) => (
                                                  <SelectItem key={p._id} value={p._id} disabled={p._id === p2}>
                                                     {p.username}
                                                  </SelectItem>
@@ -374,7 +391,7 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
                                     <Select onValueChange={setP2} value={p2}>
                                         <SelectTrigger><SelectValue placeholder="Select player" /></SelectTrigger>
                                         <SelectContent>
-                                            {bench.players.map((p: any) => (
+                                            {bench.players.map((p: Player) => (
                                                  <SelectItem key={p._id} value={p._id} disabled={p._id === p1}>
                                                     {p.username}
                                                  </SelectItem>
@@ -448,7 +465,7 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
                         <CardContent className="flex-1 p-0">
                             <ScrollArea className="h-[200px] md:h-full px-4">
                                 <div className="space-y-2 py-2">
-                                    {queue.groups.map((g: any, i: number) => (
+                                    {queue.groups.map((g: UserGroup, i: number) => (
                                         <div key={g._id} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card/50">
                                             <div className="flex items-center gap-3">
                                                 <Badge variant="outline" className="h-6 w-6 flex items-center justify-center rounded-full bg-primary/10 border-none text-primary">
@@ -457,7 +474,7 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
                                                 <span className="font-semibold">{g.name}</span>
                                             </div>
                                             <div className="flex -space-x-2">
-                                                {g.members.map((m: any) => (
+                                                {g.members.map((m: Player) => (
                                                     <Avatar key={m._id} className="h-6 w-6 border border-background">
                                                         <AvatarImage src={m.photo} />
                                                         <AvatarFallback>{m.username[0]}</AvatarFallback>
@@ -484,8 +501,8 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
                          <CardContent className="flex-1 p-0">
                              <ScrollArea className="h-[300px] md:h-full px-4">
                                  <div className="space-y-3 py-2">
-                                     {groups.map((g: any) => {
-                                         const isInQueue = queue.groups.find((q: any) => q._id === g._id);
+                                     {groups.map((g: UserGroup) => {
+                                         const isInQueue = queue.groups.find((q: UserGroup) => q._id === g._id);
                                          const isPlaying = activeMatch && (activeMatch.groupA._id === g._id || activeMatch.groupB._id === g._id);
                                          
                                          return (
@@ -498,7 +515,7 @@ export function ReunionDashboard({ initialData, currentUser }: { initialData: Re
                                                     }
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    {g.members.map((m: any) => (
+                                                    {g.members.map((m: Player) => (
                                                         <div key={m._id} className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground">
                                                             {m.username}
                                                         </div>
