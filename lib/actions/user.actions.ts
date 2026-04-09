@@ -1,61 +1,64 @@
-"use server";
+'use server';
 
-import { connectToDatabase } from "@/lib/database";
-import User from "@/lib/models/user.model";
+import { connectToDatabase } from '@/lib/database';
+import User from '@/lib/models/user.model';
+import type { ClerkUserPayload, UserDto } from '@/lib/actions/types';
 
-export async function createUser(user: { clerkId: string; email: string; username: string; photo: string }) {
+export async function createUser(user: {
+  clerkId: string;
+  email: string;
+  username: string;
+  photo: string;
+}): Promise<UserDto> {
   try {
     await connectToDatabase();
     const newUser = await User.create(user);
-    return JSON.parse(JSON.stringify(newUser));
+    return newUser.toObject();
   } catch (error) {
     console.log(error);
+    throw new Error('Failed to create user');
   }
 }
 
-export async function getUserById(clerkId: string) {
+export async function getUserById(clerkId: string): Promise<UserDto | null> {
   try {
     await connectToDatabase();
-    const user = await User.findOne({ clerkId });
-    return JSON.parse(JSON.stringify(user));
+    const user = await User.findOne({ clerkId }).lean();
+    return user;
   } catch (error) {
     console.log(error);
+    throw new Error('Failed to get user');
   }
 }
 
-export async function syncUser(clerkUser: { 
-    id: string; 
-    email_addresses: { email_address: string }[]; 
-    username?: string | null; 
-    first_name?: string | null;
-    last_name?: string | null;
-    image_url: string 
-}) {
+export async function syncUser(clerkUser: ClerkUserPayload): Promise<UserDto> {
   try {
     await connectToDatabase();
     let user = await User.findOne({ clerkId: clerkUser.id });
 
-    const fullName = [clerkUser.first_name, clerkUser.last_name].filter(Boolean).join(" ");
-    const displayName = clerkUser.username || fullName || "Anonymous Player";
+    const fullName = [clerkUser.first_name, clerkUser.last_name]
+      .filter(Boolean)
+      .join(' ');
+    const displayName = clerkUser.username || fullName || 'Anonymous Player';
 
     if (!user) {
-        user = await User.create({
-            clerkId: clerkUser.id,
-            email: clerkUser.email_addresses[0].email_address,
-            username: displayName,
-            photo: clerkUser.image_url,
-        });
+      user = await User.create({
+        clerkId: clerkUser.id,
+        email: clerkUser.email_addresses[0].email_address,
+        username: displayName,
+        photo: clerkUser.image_url,
+      });
     } else {
-        // Update name if changed
-        if (user.username !== displayName || user.photo !== clerkUser.image_url) {
-            user.username = displayName;
-            user.photo = clerkUser.image_url;
-            await user.save();
-        }
+      if (user.username !== displayName || user.photo !== clerkUser.image_url) {
+        user.username = displayName;
+        user.photo = clerkUser.image_url;
+        await user.save();
+      }
     }
-    return JSON.parse(JSON.stringify(user));
+
+    return user.toObject();
   } catch (error) {
-    console.error("Error syncing user:", error);
-    throw new Error("Failed to sync user");
+    console.error('Error syncing user:', error);
+    throw new Error('Failed to sync user');
   }
 }
