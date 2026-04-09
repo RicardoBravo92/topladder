@@ -16,6 +16,14 @@ export async function createGroup(reunionId: string, playerIds: string[]) {
 
     const bench = await Bench.findOne({ reunion: reunionId });
     if (bench) {
+      // Optional backend safety check: Are they actually on the bench?
+      const areAllOnBench = playerIds.every((pid) =>
+        bench.players.some((bp: any) => bp.toString() === pid),
+      );
+      if (!areAllOnBench) {
+        throw new Error('Some players are no longer on the bench. They might already be in the queue or a match.');
+      }
+
       bench.players = bench.players.filter(
         (p: { toString: () => string }) => !playerIds.includes(p.toString()),
       );
@@ -183,6 +191,42 @@ export async function finishMatch(matchId: string, winnerGroupId: string) {
     }
   } catch (error) {
     console.error('Error finishing match:', error);
+    throw error;
+  }
+}
+
+export async function leaveQueue(reunionId: string, groupId: string) {
+  try {
+    await connectToDatabase();
+
+    // Remove group from queue
+    const queue = await Queue.findOne({ reunion: reunionId });
+    if (queue) {
+      queue.groups = queue.groups.filter((g: { toString: () => string }) => g.toString() !== groupId);
+      await queue.save();
+    }
+
+    // Get group members
+    const group = await Group.findById(groupId);
+    if (!group) return;
+
+    // Put members back to bench
+    const bench = await Bench.findOne({ reunion: reunionId });
+    if (bench) {
+      group.members.forEach((memberId: { toString: () => string }) => {
+        const isAlreadyOnBench = bench.players.some((p: { toString: () => string }) => p.toString() === memberId.toString());
+        if (!isAlreadyOnBench) {
+          bench.players.push(memberId);
+        }
+      });
+      await bench.save();
+    }
+
+    // Delete the group
+    await Group.findByIdAndDelete(groupId);
+
+  } catch (error) {
+    console.error('Error leaving queue:', error);
     throw error;
   }
 }

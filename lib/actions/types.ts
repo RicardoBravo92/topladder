@@ -31,6 +31,13 @@ export type MatchDto = {
   winner?: string;
 };
 
+export type ReunionSettingsDto = {
+  gameMode: 'individual' | 'group';
+  groupSize?: number;
+  playersAtOnce?: number;
+  playersContinue?: number;
+};
+
 export type ReunionSummaryDto = {
   _id: string;
   name: string;
@@ -38,7 +45,7 @@ export type ReunionSummaryDto = {
   isActive: boolean;
   admin: { _id: string };
   createdAt: string;
-};
+} & ReunionSettingsDto;
 
 export type ReunionDetailsDto = {
   reunion: ReunionSummaryDto;

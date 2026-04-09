@@ -49,7 +49,7 @@ import {
   respondToFriendRequest,
 } from '@/app/actions/friend';
 import { useRouter } from 'next/navigation';
-import { createGroup, startMatch, finishMatch } from '@/app/actions/game';
+import { createGroup, startMatch, finishMatch, leaveQueue } from '@/app/actions/game';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -85,6 +85,10 @@ interface ReunionData {
     code: string;
     isActive: boolean;
     admin: { _id: string };
+    gameMode: 'individual' | 'group';
+    groupSize?: number;
+    playersAtOnce?: number;
+    playersContinue?: number;
   };
   bench: { players: Player[] };
   groups: UserGroup[];
@@ -100,7 +104,7 @@ export function ReunionDashboard({
   currentUser: Player;
 }) {
   const [data, setData] = useState<ReunionData>(initialData);
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   // Create Group State
@@ -186,6 +190,8 @@ export function ReunionDashboard({
   }, [currentUser._id, playerIdsKey]);
 
   const { reunion, bench, groups, queue, activeMatch } = data;
+  const isGroupMode = reunion.gameMode === 'group';
+  const minRequired = isGroupMode ? 2 : (reunion.playersAtOnce || 2);
 
   const handleInvite = (friend: Player) => {
     startTransition(async () => {
@@ -283,6 +289,37 @@ export function ReunionDashboard({
         try {
           await leaveReunion(reunion._id);
           router.push('/');
+        } catch (e: unknown) {
+          const error = e as Error;
+          alert(error.message);
+        }
+      });
+    }
+  };
+
+  const handleGoToQueue = () => {
+    const queueSection = document.getElementById('queue-section');
+    if (queueSection) {
+      queueSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    startTransition(async () => {
+      try {
+        await createGroup(reunion._id, [currentUser._id]);
+        refresh();
+      } catch (e: unknown) {
+        const error = e as Error;
+        alert(error.message);
+      }
+    });
+  };
+
+  const handleLeaveQueue = (groupId: string) => {
+    if (confirm('Are you sure you want to leave the queue? You will be returned to the bench.')) {
+      startTransition(async () => {
+        try {
+          await leaveQueue(reunion._id, groupId);
+          refresh();
         } catch (e: unknown) {
           const error = e as Error;
           alert(error.message);
@@ -589,69 +626,82 @@ export function ReunionDashboard({
             </CardContent>
           </Card>
 
-          <Dialog open={createGroupOpen} onOpenChange={setCreateGroupOpen}>
-            <DialogTrigger asChild>
-              <Button className='w-full bg-gradient-to-r from-primary to-purple-600 hover:opacity-90 shadow-lg shadow-primary/20 cursor-pointer'>
-                <UserPlus className='mr-2 h-4 w-4' /> Form Group
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Group</DialogTitle>
-              </DialogHeader>
-              <div className='space-y-4 pt-4'>
-                <div className='space-y-2'>
-                  <label className='text-sm font-medium'>Player 1</label>
-                  <Select onValueChange={setP1} value={p1}>
-                    <SelectTrigger>
-                      <SelectValue placeholder='Select player' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bench.players.map((p: Player) => (
-                        <SelectItem
-                          key={p._id}
-                          value={p._id}
-                          disabled={p._id === p2}
-                        >
-                          {p.username}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className='space-y-2'>
-                  <label className='text-sm font-medium'>Player 2</label>
-                  <Select onValueChange={setP2} value={p2}>
-                    <SelectTrigger>
-                      <SelectValue placeholder='Select player' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bench.players.map((p: Player) => (
-                        <SelectItem
-                          key={p._id}
-                          value={p._id}
-                          disabled={p._id === p1}
-                        >
-                          {p.username}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  onClick={handleCreateGroup}
-                  disabled={!p1 || !p2}
-                  className='w-full cursor-pointer'
-                >
-                  Create & Queue
+          {isGroupMode ? (
+            <Dialog open={createGroupOpen} onOpenChange={setCreateGroupOpen}>
+              <DialogTrigger asChild>
+                <Button className='w-full bg-gradient-to-r from-primary to-purple-600 hover:opacity-90 shadow-lg shadow-primary/20 cursor-pointer'>
+                  <UserPlus className='mr-2 h-4 w-4' /> Form Group
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Group</DialogTitle>
+                </DialogHeader>
+                <div className='space-y-4 pt-4'>
+                  <div className='space-y-2'>
+                    <label className='text-sm font-medium'>Player 1</label>
+                    <Select onValueChange={setP1} value={p1}>
+                      <SelectTrigger>
+                        <SelectValue placeholder='Select player' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bench.players.map((p: Player) => (
+                          <SelectItem
+                            key={p._id}
+                            value={p._id}
+                            disabled={p._id === p2}
+                          >
+                            {p.username}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className='space-y-2'>
+                    <label className='text-sm font-medium'>Player 2</label>
+                    <Select onValueChange={setP2} value={p2}>
+                      <SelectTrigger>
+                        <SelectValue placeholder='Select player' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bench.players.map((p: Player) => (
+                          <SelectItem
+                            key={p._id}
+                            value={p._id}
+                            disabled={p._id === p1}
+                          >
+                            {p.username}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    onClick={handleCreateGroup}
+                    disabled={!p1 || !p2}
+                    className='w-full cursor-pointer'
+                  >
+                    Create & Queue
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          ) : bench.players.some((p: Player) => p._id === currentUser._id) ? (
+            <Button
+              onClick={handleGoToQueue}
+              disabled={isPending}
+              className='w-full bg-gradient-to-r from-primary to-purple-600 hover:opacity-90 shadow-lg shadow-primary/20 cursor-pointer'
+            >
+              Go to Queue
+            </Button>
+          ) : null}
         </section>
 
         {/* Middle: Arena (6 cols) */}
-        <section className='md:col-span-6 flex flex-col gap-6'>
+        <section
+          id='queue-section'
+          className='md:col-span-6 flex flex-col gap-6'
+        >
           {/* Active Match */}
           <Card className='bg-gradient-to-br from-card/80 to-primary/5 border-primary/20 shadow-xl relative overflow-hidden min-h-[300px] flex flex-col justify-center'>
             <div className='absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent' />
@@ -710,14 +760,14 @@ export function ReunionDashboard({
                   <Button
                     size='lg'
                     onClick={handleStartMatch}
-                    disabled={queue.groups.length < 2}
+                    disabled={queue.groups.length < minRequired}
                     className='cursor-pointer'
                   >
                     <Play className='mr-2 h-5 w-5' /> Start Next Match
                   </Button>
-                  {queue.groups.length < 2 && (
+                  {queue.groups.length < minRequired && (
                     <p className='text-xs text-destructive'>
-                      Need at least 2 groups in queue
+                      Need at least {minRequired} {isGroupMode ? 'groups' : 'players'} in queue
                     </p>
                   )}
                 </div>
@@ -736,10 +786,12 @@ export function ReunionDashboard({
             <CardContent className='flex-1 p-0'>
               <ScrollArea className='h-[200px] md:h-full px-4'>
                 <div className='space-y-2 py-2'>
-                  {queue.groups.map((g: UserGroup, i: number) => (
+                  {queue.groups.map((g: UserGroup, i: number) => {
+                    const isMyGroup = g.members.some((m) => m._id === currentUser._id);
+                    return (
                     <div
                       key={g._id}
-                      className='flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card/50'
+                      className='flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card/50 group/queue'
                     >
                       <div className='flex items-center gap-3'>
                         <Badge
@@ -750,19 +802,33 @@ export function ReunionDashboard({
                         </Badge>
                         <span className='font-semibold'>{g.name}</span>
                       </div>
-                      <div className='flex -space-x-2'>
-                        {g.members.map((m: Player) => (
-                          <Avatar
-                            key={m._id}
-                            className='h-6 w-6 border border-background'
+                      <div className='flex items-center gap-4'>
+                        <div className='flex -space-x-2'>
+                          {g.members.map((m: Player) => (
+                            <Avatar
+                              key={m._id}
+                              className='h-6 w-6 border border-background'
+                            >
+                              <AvatarImage src={m.photo} />
+                              <AvatarFallback>{m.username[0]}</AvatarFallback>
+                            </Avatar>
+                          ))}
+                        </div>
+                        {(isAdmin || isMyGroup) && (
+                          <Button
+                            size='icon'
+                            variant='ghost'
+                            className='h-6 w-6 text-destructive opacity-0 group-hover/queue:opacity-100 transition-opacity'
+                            onClick={() => handleLeaveQueue(g._id)}
+                            title='Leave Queue'
+                            disabled={isPending}
                           >
-                            <AvatarImage src={m.photo} />
-                            <AvatarFallback>{m.username[0]}</AvatarFallback>
-                          </Avatar>
-                        ))}
+                            <LogOut className='h-3 w-3' />
+                          </Button>
+                        )}
                       </div>
                     </div>
-                  ))}
+                  )})}
                   {queue.groups.length === 0 && (
                     <p className='text-center text-muted-foreground py-4'>
                       Queue is empty
@@ -775,70 +841,72 @@ export function ReunionDashboard({
         </section>
 
         {/* Right: Groups (3 cols) */}
-        <section className='md:col-span-3 flex flex-col gap-4'>
-          <Card className='flex-1 bg-card/40 backdrop-blur flex flex-col'>
-            <CardHeader>
-              <CardTitle className='flex items-center gap-2'>
-                <Users className='h-5 w-5 text-primary' /> All Groups
-              </CardTitle>
-            </CardHeader>
-            <CardContent className='flex-1 p-0'>
-              <ScrollArea className='h-[300px] md:h-full px-4'>
-                <div className='space-y-3 py-2'>
-                  {groups.map((g: UserGroup) => {
-                    const isInQueue = queue.groups.find(
-                      (q: UserGroup) => q._id === g._id,
-                    );
-                    const isPlaying =
-                      activeMatch &&
-                      (activeMatch.groupA._id === g._id ||
-                        activeMatch.groupB._id === g._id);
+        {isGroupMode && (
+          <section className='md:col-span-3 flex flex-col gap-4'>
+            <Card className='flex-1 bg-card/40 backdrop-blur flex flex-col'>
+              <CardHeader>
+                <CardTitle className='flex items-center gap-2'>
+                  <Users className='h-5 w-5 text-primary' /> All Groups
+                </CardTitle>
+              </CardHeader>
+              <CardContent className='flex-1 p-0'>
+                <ScrollArea className='h-[300px] md:h-full px-4'>
+                  <div className='space-y-3 py-2'>
+                    {groups.map((g: UserGroup) => {
+                      const isInQueue = queue.groups.find(
+                        (q: UserGroup) => q._id === g._id,
+                      );
+                      const isPlaying =
+                        activeMatch &&
+                        (activeMatch.groupA._id === g._id ||
+                          activeMatch.groupB._id === g._id);
 
-                    return (
-                      <div
-                        key={g._id}
-                        className='p-3 rounded-xl border border-border/50 bg-card hover:bg-card/80 transition-all'
-                      >
-                        <div className='flex justify-between items-start mb-2'>
-                          <h4 className='font-bold'>{g.name}</h4>
-                          {isPlaying ? (
-                            <Badge className='bg-green-500/20 text-green-500 border-green-500/20'>
-                              Playing
-                            </Badge>
-                          ) : isInQueue ? (
-                            <Badge variant='secondary'>Queued</Badge>
-                          ) : (
-                            <Badge
-                              variant='outline'
-                              className='text-muted-foreground opacity-50'
-                            >
-                              Inactive
-                            </Badge>
-                          )}
+                      return (
+                        <div
+                          key={g._id}
+                          className='p-3 rounded-xl border border-border/50 bg-card hover:bg-card/80 transition-all'
+                        >
+                          <div className='flex justify-between items-start mb-2'>
+                            <h4 className='font-bold'>{g.name}</h4>
+                            {isPlaying ? (
+                              <Badge className='bg-green-500/20 text-green-500 border-green-500/20'>
+                                Playing
+                              </Badge>
+                            ) : isInQueue ? (
+                              <Badge variant='secondary'>Queued</Badge>
+                            ) : (
+                              <Badge
+                                variant='outline'
+                                className='text-muted-foreground opacity-50'
+                              >
+                                Inactive
+                              </Badge>
+                            )}
+                          </div>
+                          <div className='flex gap-2'>
+                            {g.members.map((m: Player) => (
+                              <div
+                                key={m._id}
+                                className='text-xs bg-muted px-2 py-1 rounded text-muted-foreground'
+                              >
+                                {m.username}
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div className='flex gap-2'>
-                          {g.members.map((m: Player) => (
-                            <div
-                              key={m._id}
-                              className='text-xs bg-muted px-2 py-1 rounded text-muted-foreground'
-                            >
-                              {m.username}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {groups.length === 0 && (
-                    <p className='text-center text-muted-foreground py-4'>
-                      No groups formed
-                    </p>
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </section>
+                      );
+                    })}
+                    {groups.length === 0 && (
+                      <p className='text-center text-muted-foreground py-4'>
+                        No groups formed
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </section>
+        )}
       </main>
     </div>
   );

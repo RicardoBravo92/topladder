@@ -42,7 +42,15 @@ async function getCurrentBackendUser() {
   return syncUser(buildClerkPayload(clerkUser));
 }
 
-export async function createReunion(name: string) {
+export async function createReunion(
+  name: string,
+  settings: {
+    gameMode: 'individual' | 'group';
+    groupSize?: number;
+    playersAtOnce?: number;
+    playersContinue?: number;
+  },
+) {
   const clerkUser = await currentUser();
   if (!clerkUser) throw new Error('Authentication required');
 
@@ -56,6 +64,10 @@ export async function createReunion(name: string) {
       name,
       code,
       admin: user._id,
+      gameMode: settings.gameMode,
+      groupSize: settings.groupSize ?? 2,
+      playersAtOnce: settings.playersAtOnce ?? 1,
+      playersContinue: settings.playersContinue ?? 0,
     });
 
     await Bench.create({ reunion: reunion._id, players: [user._id] });
@@ -69,6 +81,10 @@ export async function createReunion(name: string) {
       isActive: reunionObject.isActive,
       admin: { _id: reunionObject.admin.toString() },
       createdAt: reunionObject.createdAt.toISOString(),
+      gameMode: reunionObject.gameMode,
+      groupSize: reunionObject.groupSize,
+      playersAtOnce: reunionObject.playersAtOnce,
+      playersContinue: reunionObject.playersContinue,
     };
   } catch (error) {
     console.error('Error creating reunion:', error);
@@ -102,6 +118,10 @@ export async function joinReunion(code: string) {
         isActive: reunion.isActive,
         admin: { _id: (reunion.admin as any).toString() },
         createdAt: reunion.createdAt.toISOString(),
+        gameMode: reunion.gameMode,
+        groupSize: reunion.groupSize,
+        playersAtOnce: reunion.playersAtOnce,
+        playersContinue: reunion.playersContinue,
       };
     }
 
@@ -123,6 +143,10 @@ export async function joinReunion(code: string) {
       isActive: reunion.isActive,
       admin: { _id: (reunion.admin as any).toString() },
       createdAt: reunion.createdAt.toISOString(),
+      gameMode: reunion.gameMode,
+      groupSize: reunion.groupSize,
+      playersAtOnce: reunion.playersAtOnce,
+      playersContinue: reunion.playersContinue,
     };
   } catch (error) {
     console.error('Error joining reunion:', error);
@@ -164,6 +188,10 @@ export async function getReunionDetails(
       isActive: reunion.isActive,
       admin: { _id: (reunion.admin as any)._id.toString() },
       createdAt: reunion.createdAt.toISOString(),
+      gameMode: reunion.gameMode,
+      groupSize: reunion.groupSize,
+      playersAtOnce: reunion.playersAtOnce,
+      playersContinue: reunion.playersContinue,
     };
 
     const benchData = bench
