@@ -192,6 +192,82 @@ export function ReunionDashboard({
     loadSocial();
   }, [currentUser._id, playerIdsKey]);
 
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const playNotificationSound = useCallback(() => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc1.type = 'sine';
+      osc2.type = 'triangle';
+      
+      osc1.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc1.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.1); // C6
+      
+      osc2.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
+      osc2.frequency.exponentialRampToValueAtTime(1318.51, ctx.currentTime + 0.1); // E6
+      
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc1.start();
+      osc2.start();
+      osc1.stop(ctx.currentTime + 0.5);
+      osc2.stop(ctx.currentTime + 0.5);
+    } catch(e) {
+      console.error("Audio API not supported or blocked", e);
+    }
+  }, []);
+
+  const prevMatchIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!data.activeMatch) {
+      prevMatchIdRef.current = null;
+      return;
+    }
+
+    const currentMatchId = data.activeMatch._id;
+    const isNewMatch = currentMatchId !== prevMatchIdRef.current;
+    
+    if (isNewMatch && prevMatchIdRef.current !== null) {
+      // Check if user is in this match
+      const amIPlaying = data.activeMatch.groupA.members.some((m: Player) => m._id === currentUser._id) || 
+                         data.activeMatch.groupB.members.some((m: Player) => m._id === currentUser._id);
+      
+      if (amIPlaying) {
+        playNotificationSound();
+        
+        if ("Notification" in window && Notification.permission === "granted") {
+          const opponentGroup = data.activeMatch.groupA.members.some((m: Player) => m._id === currentUser._id) 
+            ? data.activeMatch.groupB.name 
+            : data.activeMatch.groupA.name;
+            
+          new Notification("Your Match is Ready!", {
+            body: `You are up against ${opponentGroup}. Let's go!`,
+            icon: '/TopLadderLogo.png'
+          });
+        }
+      }
+    }
+    
+    prevMatchIdRef.current = currentMatchId;
+  }, [data.activeMatch, currentUser._id, playNotificationSound]);
+
   const { reunion, bench, groups, queue, activeMatch } = data;
   const isGroupMode = reunion.gameMode === 'group';
   const minRequired = isGroupMode ? 2 : (reunion.playersAtOnce || 2);
