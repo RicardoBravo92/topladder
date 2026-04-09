@@ -1,7 +1,7 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { joinReunion } from '@/app/actions/reunion';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -13,6 +13,14 @@ export function JoinReunionForm() {
   const { user } = useUser();
   const router = useRouter();
   const [code, setCode] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const codeParam = params.get('code');
+      if (codeParam) setCode(codeParam);
+    }
+  }, []);
   const [loading, setLoading] = useState(false);
   const [, startTransition] = useTransition();
 

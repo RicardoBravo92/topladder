@@ -34,7 +34,9 @@ import {
   LogOut,
   UserMinus,
   UserCheck,
+  QrCode,
 } from 'lucide-react';
+import QRCode from 'react-qr-code';
 import {
   getReunionDetails,
   leaveReunion,
@@ -121,6 +123,7 @@ export function ReunionDashboard({
   >({});
   const [inviteOpen, setInviteOpen] = useState(false);
   const [socialOpen, setSocialOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
@@ -356,6 +359,28 @@ export function ReunionDashboard({
             <Badge variant='outline' className='text-muted-foreground'>
               Code: {reunion.code}
             </Badge>
+            <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="h-6 text-xs gap-1 border-primary/20 hover:bg-primary/10 cursor-pointer">
+                  <QrCode className="h-3 w-3" /> QR
+                </Button>
+              </DialogTrigger>
+              <DialogContent className='max-w-xs flex flex-col items-center justify-center p-6'>
+                <DialogHeader>
+                  <DialogTitle className="text-center mb-4">Scan to Join</DialogTitle>
+                </DialogHeader>
+                <div className="bg-white p-4 rounded-xl shadow-inner border border-border">
+                  <QRCode
+                    value={typeof window !== 'undefined' ? `${window.location.origin}/?code=${reunion.code}` : ''}
+                    size={200}
+                    style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                  />
+                </div>
+                <p className="text-center text-sm text-muted-foreground mt-4">
+                  Code: <strong className="text-primary">{reunion.code}</strong>
+                </p>
+              </DialogContent>
+            </Dialog>
             <Badge variant='secondary'>
               {reunion.isActive ? 'Active' : 'Finished'}
             </Badge>
