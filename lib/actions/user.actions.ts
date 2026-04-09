@@ -13,7 +13,13 @@ export async function createUser(user: {
   try {
     await connectToDatabase();
     const newUser = await User.create(user);
-    return newUser.toObject();
+    return {
+      _id: newUser._id.toString(),
+      clerkId: newUser.clerkId,
+      email: newUser.email,
+      username: newUser.username,
+      photo: newUser.photo,
+    };
   } catch (error) {
     console.log(error);
     throw new Error('Failed to create user');
@@ -24,7 +30,14 @@ export async function getUserById(clerkId: string): Promise<UserDto | null> {
   try {
     await connectToDatabase();
     const user = await User.findOne({ clerkId }).lean();
-    return user;
+    if (!user) return null;
+    return {
+      _id: user._id.toString(),
+      clerkId: user.clerkId,
+      email: user.email,
+      username: user.username,
+      photo: user.photo,
+    };
   } catch (error) {
     console.log(error);
     throw new Error('Failed to get user');
@@ -56,7 +69,13 @@ export async function syncUser(clerkUser: ClerkUserPayload): Promise<UserDto> {
       }
     }
 
-    return user.toObject();
+    return {
+      _id: user._id.toString(),
+      clerkId: user.clerkId,
+      email: user.email,
+      username: user.username,
+      photo: user.photo,
+    };
   } catch (error) {
     console.error('Error syncing user:', error);
     throw new Error('Failed to sync user');

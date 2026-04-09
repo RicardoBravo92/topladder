@@ -22,13 +22,15 @@ async function getCurrentBackendUser() {
   });
 }
 
-export async function sendFriendRequest(recipientEmail: string) {
+export async function sendFriendRequest(recipientIdentifier: string) {
   const backendUser = await getCurrentBackendUser();
   try {
     await connectToDatabase();
 
-    const recipient = await User.findOne({ email: recipientEmail });
-    if (!recipient) throw new Error('User not found');
+    const recipient = await User.findOne({
+      $or: [{ email: recipientIdentifier }, { username: recipientIdentifier }],
+    });
+    if (!recipient) throw new Error('User not found by email or username');
     if (recipient._id.toString() === backendUser._id)
       throw new Error('You cannot add yourself');
 
@@ -118,7 +120,11 @@ export async function getFriends(userId: string) {
     return friendships.map((f) => {
       const friend =
         f.requester._id.toString() === userId ? f.recipient : f.requester;
-      return friend;
+      return {
+        _id: friend._id.toString(),
+        username: friend.username,
+        photo: friend.photo,
+      };
     });
   } catch (error) {
     console.error('Error getting friends:', error);
@@ -132,7 +138,14 @@ export async function getPendingRequests(userId: string) {
     const requests = await Friend.find({ recipient: userId, status: 'pending' })
       .populate('requester')
       .lean();
-    return requests;
+    return requests.map((request) => ({
+      _id: request._id.toString(),
+      requester: {
+        _id: request.requester._id.toString(),
+        username: request.requester.username,
+        photo: request.requester.photo,
+      },
+    }));
   } catch (error) {
     console.error('Error getting pending requests:', error);
     return [];
@@ -191,7 +204,18 @@ export async function getMyReunionInvites(userId: string) {
     })
       .populate('reunion inviter')
       .lean();
-    return invites;
+    return invites.map((invite) => ({
+      _id: invite._id.toString(),
+      inviter: {
+        _id: invite.inviter._id.toString(),
+        username: invite.inviter.username,
+        photo: invite.inviter.photo,
+      },
+      reunion: {
+        _id: invite.reunion._id.toString(),
+        name: invite.reunion.name,
+      },
+    }));
   } catch (error) {
     console.error('Error getting reunion invites:', error);
     return [];
@@ -209,7 +233,7 @@ export async function respondToReunionInvite(
 
     invite.status = status;
     await invite.save();
-    return invite.reunion;
+    return invite.reunion.toString();
   } catch (error) {
     console.error('Error responding to reunion invite:', error);
     throw error;

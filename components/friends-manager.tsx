@@ -41,7 +41,7 @@ export function FriendsManager({ currentUser }: { currentUser: Player }) {
   const [friends, setFriends] = useState<Player[]>([]);
   const [pending, setPending] = useState<FriendRequest[]>([]);
   const [reunionInvites, setReunionInvites] = useState<ReunionInvite[]>([]);
-  const [email, setEmail] = useState('');
+  const [contactIdentifier, setContactIdentifier] = useState('');
   const [loading, setLoading] = useState(false);
   const [, startTransition] = useTransition();
   const router = useRouter();
@@ -64,13 +64,13 @@ export function FriendsManager({ currentUser }: { currentUser: Player }) {
   }, [loadData]);
 
   const handleAddFriend = () => {
-    if (!email) return;
+    if (!contactIdentifier) return;
     setLoading(true);
     startTransition(async () => {
       try {
-        await sendFriendRequest(email);
+        await sendFriendRequest(contactIdentifier);
         alert('Request sent!');
-        setEmail('');
+        setContactIdentifier('');
       } catch (e: unknown) {
         const error = e as Error;
         alert(error.message);
@@ -108,14 +108,14 @@ export function FriendsManager({ currentUser }: { currentUser: Player }) {
         {/* Add Friend */}
         <div className='flex gap-2'>
           <Input
-            placeholder="Friend's email..."
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Friend's email or username..."
+            value={contactIdentifier}
+            onChange={(e) => setContactIdentifier(e.target.value)}
             className='bg-background/50'
           />
           <Button
             onClick={handleAddFriend}
-            disabled={loading || !email}
+            disabled={loading || !contactIdentifier}
             size='icon'
           >
             <UserPlus className='h-4 w-4' />

@@ -34,7 +34,21 @@ export async function createGroup(reunionId: string, playerIds: string[]) {
       await queue.save();
     }
 
-    return group.toObject();
+    // Populate the group to get member details
+    const populatedGroup = await Group.findById(group._id)
+      .populate('members')
+      .lean();
+    return {
+      _id: populatedGroup!._id.toString(),
+      name: populatedGroup!.name,
+      members: populatedGroup!.members.map((member: any) => ({
+        _id: member._id.toString(),
+        clerkId: member.clerkId,
+        email: member.email,
+        username: member.username,
+        photo: member.photo,
+      })),
+    };
   } catch (error) {
     console.error('Error creating group:', error);
     throw error;
@@ -83,7 +97,39 @@ export async function startMatch(reunionId: string) {
       status: 'playing',
     });
 
-    return match.toObject();
+    // Populate the match to get group details
+    const populatedMatch = await Match.findById(match._id)
+      .populate({ path: 'groupA', populate: { path: 'members' } })
+      .populate({ path: 'groupB', populate: { path: 'members' } })
+      .lean();
+
+    return {
+      _id: populatedMatch!._id.toString(),
+      groupA: {
+        _id: populatedMatch!.groupA._id.toString(),
+        name: populatedMatch!.groupA.name,
+        members: populatedMatch!.groupA.members.map((member: any) => ({
+          _id: member._id.toString(),
+          clerkId: member.clerkId,
+          email: member.email,
+          username: member.username,
+          photo: member.photo,
+        })),
+      },
+      groupB: {
+        _id: populatedMatch!.groupB._id.toString(),
+        name: populatedMatch!.groupB.name,
+        members: populatedMatch!.groupB.members.map((member: any) => ({
+          _id: member._id.toString(),
+          clerkId: member.clerkId,
+          email: member.email,
+          username: member.username,
+          photo: member.photo,
+        })),
+      },
+      status: populatedMatch!.status,
+      winner: populatedMatch!.winner?.toString(),
+    };
   } catch (error) {
     console.error('Error starting match:', error);
     throw error;

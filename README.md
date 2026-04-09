@@ -18,7 +18,6 @@ A modern web application for organizing and managing sports reunions, built with
 - **Styling**: Tailwind CSS, Radix UI
 - **Authentication**: Clerk
 - **Database**: MongoDB with Mongoose
-- **Deployment**: Vercel (recommended)
 
 ## Getting Started
 

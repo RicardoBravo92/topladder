@@ -61,7 +61,15 @@ export async function createReunion(name: string) {
     await Bench.create({ reunion: reunion._id, players: [user._id] });
     await Queue.create({ reunion: reunion._id, groups: [] });
 
-    return reunion.toObject();
+    const reunionObject = reunion.toObject();
+    return {
+      _id: reunionObject._id.toString(),
+      name: reunionObject.name,
+      code: reunionObject.code,
+      isActive: reunionObject.isActive,
+      admin: { _id: reunionObject.admin.toString() },
+      createdAt: reunionObject.createdAt.toISOString(),
+    };
   } catch (error) {
     console.error('Error creating reunion:', error);
     throw new Error('Failed to create reunion');
@@ -86,7 +94,16 @@ export async function joinReunion(code: string) {
       reunion: reunion._id,
       members: user._id,
     });
-    if (isInGroup) return reunion as ReunionSummaryDto;
+    if (isInGroup) {
+      return {
+        _id: reunion._id.toString(),
+        name: reunion.name,
+        code: reunion.code,
+        isActive: reunion.isActive,
+        admin: { _id: (reunion.admin as any).toString() },
+        createdAt: reunion.createdAt.toISOString(),
+      };
+    }
 
     const bench = await Bench.findOne({ reunion: reunion._id });
     if (!bench) throw new Error('Bench not found');
@@ -99,7 +116,14 @@ export async function joinReunion(code: string) {
       await bench.save();
     }
 
-    return reunion as ReunionSummaryDto;
+    return {
+      _id: reunion._id.toString(),
+      name: reunion.name,
+      code: reunion.code,
+      isActive: reunion.isActive,
+      admin: { _id: (reunion.admin as any).toString() },
+      createdAt: reunion.createdAt.toISOString(),
+    };
   } catch (error) {
     console.error('Error joining reunion:', error);
     throw error;
@@ -132,12 +156,92 @@ export async function getReunionDetails(
       .populate({ path: 'groupB', populate: { path: 'members' } })
       .lean<MatchDto | null>();
 
+    // Convert ObjectIds to strings
+    const reunionData = {
+      _id: reunion._id.toString(),
+      name: reunion.name,
+      code: reunion.code,
+      isActive: reunion.isActive,
+      admin: { _id: (reunion.admin as any)._id.toString() },
+      createdAt: reunion.createdAt.toISOString(),
+    };
+
+    const benchData = bench
+      ? {
+          players: bench.players.map((player) => ({
+            _id: player._id.toString(),
+            clerkId: player.clerkId,
+            email: player.email,
+            username: player.username,
+            photo: player.photo,
+          })),
+        }
+      : { players: [] };
+
+    const groupsData = groups.map((group) => ({
+      _id: group._id.toString(),
+      name: group.name,
+      members: group.members.map((member) => ({
+        _id: member._id.toString(),
+        clerkId: member.clerkId,
+        email: member.email,
+        username: member.username,
+        photo: member.photo,
+      })),
+    }));
+
+    const queueData = queue
+      ? {
+          groups: queue.groups.map((group) => ({
+            _id: group._id.toString(),
+            name: group.name,
+            members: group.members.map((member) => ({
+              _id: member._id.toString(),
+              clerkId: member.clerkId,
+              email: member.email,
+              username: member.username,
+              photo: member.photo,
+            })),
+          })),
+        }
+      : { groups: [] };
+
+    const activeMatchData = activeMatch
+      ? {
+          _id: activeMatch._id.toString(),
+          groupA: {
+            _id: activeMatch.groupA._id.toString(),
+            name: activeMatch.groupA.name,
+            members: activeMatch.groupA.members.map((member) => ({
+              _id: member._id.toString(),
+              clerkId: member.clerkId,
+              email: member.email,
+              username: member.username,
+              photo: member.photo,
+            })),
+          },
+          groupB: {
+            _id: activeMatch.groupB._id.toString(),
+            name: activeMatch.groupB.name,
+            members: activeMatch.groupB.members.map((member) => ({
+              _id: member._id.toString(),
+              clerkId: member.clerkId,
+              email: member.email,
+              username: member.username,
+              photo: member.photo,
+            })),
+          },
+          status: activeMatch.status,
+          winner: activeMatch.winner?.toString(),
+        }
+      : null;
+
     return {
-      reunion: reunion as ReunionSummaryDto,
-      bench: bench ?? { players: [] },
-      groups: groups ?? [],
-      queue: queue ?? { groups: [] },
-      activeMatch: activeMatch ?? null,
+      reunion: reunionData,
+      bench: benchData,
+      groups: groupsData,
+      queue: queueData,
+      activeMatch: activeMatchData,
     };
   } catch (error) {
     console.error('Error fetching reunion details:', error);

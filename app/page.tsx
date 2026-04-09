@@ -30,11 +30,13 @@ export default async function Home() {
 
       <div className='z-10 flex flex-col items-center w-full max-w-4xl space-y-12'>
         <div className='text-center space-y-4'>
-          <h1 className='text-5xl md:text-7xl font-bold bg-gradient-to-br from-primary to-foreground bg-clip-text text-transparent animate-in zoom-in duration-700'>
-            TopLadder
-          </h1>
+          <img
+            src='/TopLadderLogo.png'
+            alt='TopLadder Logo'
+            className='h-16 md:h-24 mx-auto animate-in zoom-in duration-700'
+          />
           <p className='text-muted-foreground text-xl md:text-2xl max-w-2xl mx-auto'>
-            The premium queue management system for your 2v2 matches.
+            The premium queue management system for your matches.
           </p>
         </div>
 
