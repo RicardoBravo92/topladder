@@ -1,6 +1,7 @@
 'use client';
 
-import { useTransition, useEffect, useCallback, useRef } from 'react';
+import { useTransition, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Swords, Play } from 'lucide-react';
@@ -32,42 +33,46 @@ export function ReunionArena({
     }
   }, []);
 
-  const playNotificationSound = useCallback(() => {
+  const playNotificationSound = () => {
     try {
-      const win = window as unknown as Window & { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
-      const AudioContextClass = win.AudioContext || win.webkitAudioContext;
-      if (!AudioContextClass) throw new Error("AudioContext not supported");
+      const AudioContextClass =
+        (window as unknown as Window & {
+          AudioContext?: typeof AudioContext;
+          webkitAudioContext?: typeof AudioContext;
+        }).AudioContext ||
+        (window as unknown as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
       const ctx = new AudioContextClass();
-      
+
       const osc1 = ctx.createOscillator();
       const osc2 = ctx.createOscillator();
       const gain = ctx.createGain();
-      
+
       osc1.type = 'sine';
       osc2.type = 'triangle';
-      
-      osc1.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-      osc1.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.1); // C6
-      
-      osc2.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
-      osc2.frequency.exponentialRampToValueAtTime(1318.51, ctx.currentTime + 0.1); // E6
-      
+
+      osc1.frequency.setValueAtTime(523.25, ctx.currentTime);
+      osc1.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.1);
+
+      osc2.frequency.setValueAtTime(659.25, ctx.currentTime);
+      osc2.frequency.exponentialRampToValueAtTime(1318.51, ctx.currentTime + 0.1);
+
       gain.gain.setValueAtTime(0, ctx.currentTime);
       gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      
+
       osc1.connect(gain);
       osc2.connect(gain);
       gain.connect(ctx.destination);
-      
+
       osc1.start();
       osc2.start();
       osc1.stop(ctx.currentTime + 0.5);
       osc2.stop(ctx.currentTime + 0.5);
-    } catch(e) {
-      console.error("Audio API not supported or blocked", e);
+    } catch {
+      // Audio API not available
     }
-  }, []);
+  };
 
   const prevMatchIdRef = useRef<string | null>(null);
 
@@ -79,28 +84,33 @@ export function ReunionArena({
 
     const currentMatchId = activeMatch._id;
     const isNewMatch = currentMatchId !== prevMatchIdRef.current;
-    
+
     if (isNewMatch && prevMatchIdRef.current !== null) {
-      // Check if user is in this match
-      const amIPlaying = activeMatch.groupA.members.some((m: Player) => m._id === currentUser._id) || 
-                         activeMatch.groupB.members.some((m: Player) => m._id === currentUser._id);
-      
+      const amIPlaying = activeMatch.groupA.members.some(
+        (m: Player) => m._id === currentUser._id,
+      ) ||
+        activeMatch.groupB.members.some(
+          (m: Player) => m._id === currentUser._id,
+        );
+
       if (amIPlaying) {
         playNotificationSound();
-        
-        if ("Notification" in window && Notification.permission === "granted") {
-          const opponentGroup = activeMatch.groupA.members.some((m: Player) => m._id === currentUser._id) 
-            ? activeMatch.groupB.name 
+
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const opponentGroup = activeMatch.groupA.members.some(
+            (m: Player) => m._id === currentUser._id,
+          )
+            ? activeMatch.groupB.name
             : activeMatch.groupA.name;
-            
-          new Notification("Your Match is Ready!", {
+
+          new Notification('Your Match is Ready!', {
             body: `You are up against ${opponentGroup}. Let's go!`,
-            icon: '/TopLadderLogo.png'
+            icon: '/TopLadderLogo.png',
           });
         }
       }
     }
-    
+
     prevMatchIdRef.current = currentMatchId;
   }, [activeMatch, currentUser._id, playNotificationSound]);
 
@@ -111,7 +121,7 @@ export function ReunionArena({
         refresh();
       } catch (error: unknown) {
         const err = error as Error;
-        alert('Cannot start match: ' + err.message);
+        toast.error(err.message);
       }
     });
   };
@@ -124,7 +134,7 @@ export function ReunionArena({
         refresh();
       } catch (error: unknown) {
         const err = error as Error;
-        alert(err.message);
+        toast.error(err.message);
       }
     });
   };

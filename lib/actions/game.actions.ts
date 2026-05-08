@@ -18,7 +18,7 @@ export async function createGroup(reunionId: string, playerIds: string[]) {
     if (bench) {
       // Optional backend safety check: Are they actually on the bench?
       const areAllOnBench = playerIds.every((pid) =>
-        bench.players.some((bp: any) => bp.toString() === pid),
+        bench.players.some((bp: { toString: () => string }) => bp.toString() === pid),
       );
       if (!areAllOnBench) {
         throw new Error('Some players are no longer on the bench. They might already be in the queue or a match.');
@@ -49,7 +49,7 @@ export async function createGroup(reunionId: string, playerIds: string[]) {
     return {
       _id: populatedGroup!._id.toString(),
       name: populatedGroup!.name,
-      members: populatedGroup!.members.map((member: any) => ({
+      members: populatedGroup!.members.map((member: { _id: { toString: () => string }; clerkId: string; email: string; username: string; photo: string }) => ({
         _id: member._id.toString(),
         clerkId: member.clerkId,
         email: member.email,
@@ -116,7 +116,7 @@ export async function startMatch(reunionId: string) {
       groupA: {
         _id: populatedMatch!.groupA._id.toString(),
         name: populatedMatch!.groupA.name,
-        members: populatedMatch!.groupA.members.map((member: any) => ({
+        members: populatedMatch!.groupA.members.map((member: { _id: { toString: () => string }; clerkId: string; email: string; username: string; photo: string }) => ({
           _id: member._id.toString(),
           clerkId: member.clerkId,
           email: member.email,
@@ -127,7 +127,7 @@ export async function startMatch(reunionId: string) {
       groupB: {
         _id: populatedMatch!.groupB._id.toString(),
         name: populatedMatch!.groupB.name,
-        members: populatedMatch!.groupB.members.map((member: any) => ({
+        members: populatedMatch!.groupB.members.map((member: { _id: { toString: () => string }; clerkId: string; email: string; username: string; photo: string }) => ({
           _id: member._id.toString(),
           clerkId: member.clerkId,
           email: member.email,

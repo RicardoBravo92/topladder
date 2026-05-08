@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
+import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -15,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Users, UserPlus, DoorOpen, UserCheck, QrCode } from 'lucide-react';
 import QRCode from 'react-qr-code';
+import { useConfirm } from '@/hooks/use-confirm';
 import { leaveReunion } from '@/app/actions/reunion';
 import {
   getFriends,
@@ -43,11 +45,12 @@ export function ReunionHeader({
 }: ReunionHeaderProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const confirm = useConfirm();
 
   const [friends, setFriends] = useState<Player[]>([]);
   const [pendingFriendRequests, setPendingFriendRequests] = useState<FriendRequest[]>([]);
   const [friendshipStatuses, setFriendshipStatuses] = useState<Record<string, string>>({});
-  
+
   const [inviteOpen, setInviteOpen] = useState(false);
   const [socialOpen, setSocialOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -58,12 +61,15 @@ export function ReunionHeader({
         getFriends(currentUser._id),
         getPendingRequests(currentUser._id),
       ]);
-      setFriends(f);
-      setPendingFriendRequests(p);
+      setFriends(f as Player[]);
+      setPendingFriendRequests(p as FriendRequest[]);
 
       const allPlayerIds = playerIdsKey ? playerIdsKey.split(',') : [];
       if (allPlayerIds.length > 0) {
-        const statuses = await getFriendshipStatuses(currentUser._id, allPlayerIds);
+        const statuses = await getFriendshipStatuses(
+          currentUser._id,
+          allPlayerIds,
+        );
         setFriendshipStatuses(statuses);
       }
     };
@@ -74,10 +80,10 @@ export function ReunionHeader({
     startTransition(async () => {
       try {
         await sendReunionInvite(reunion._id, friend._id);
-        alert(`Invite sent to ${friend.username}!`);
+        toast.success(`Invite sent to ${friend.username}!`);
       } catch (error: unknown) {
         const err = error as Error;
-        alert(err.message);
+        toast.error(err.message);
       }
     });
   };
@@ -86,44 +92,59 @@ export function ReunionHeader({
     startTransition(async () => {
       try {
         await sendFriendRequestById(targetId);
-        alert(`Friend request sent to ${targetName}!`);
+        toast.success(`Friend request sent to ${targetName}!`);
         setFriendshipStatuses((prev) => ({ ...prev, [targetId]: 'pending' }));
       } catch (error: unknown) {
         const err = error as Error;
-        alert(err.message);
+        toast.error(err.message);
       }
     });
   };
 
-  const handleRespondToFriend = (id: string, status: 'accepted' | 'rejected') => {
+  const handleRespondToFriend = (
+    id: string,
+    status: 'accepted' | 'rejected',
+  ) => {
     startTransition(async () => {
       try {
         await respondToFriendRequest(id, status);
+        toast.success(
+          status === 'accepted'
+            ? 'Friend request accepted!'
+            : 'Friend request rejected',
+        );
         const [f, p] = await Promise.all([
           getFriends(currentUser._id),
           getPendingRequests(currentUser._id),
         ]);
-        setFriends(f);
-        setPendingFriendRequests(p);
+        setFriends(f as Player[]);
+        setPendingFriendRequests(p as FriendRequest[]);
       } catch (error: unknown) {
         const err = error as Error;
-        alert(err.message);
+        toast.error(err.message);
       }
     });
   };
 
-  const handleLeave = () => {
-    if (confirm('Are you sure you want to leave this reunion? You will be removed from the bench and any groups.')) {
-      startTransition(async () => {
-        try {
-          await leaveReunion(reunion._id);
-          router.push('/');
-        } catch (error: unknown) {
-          const err = error as Error;
-          alert(err.message);
-        }
-      });
-    }
+  const handleLeave = async () => {
+    const ok = await confirm({
+      title: 'Leave Reunion',
+      description:
+        'Are you sure you want to leave this reunion? You will be removed from the bench and any groups.',
+      confirmText: 'Leave',
+      destructive: true,
+    });
+    if (!ok) return;
+    startTransition(async () => {
+      try {
+        await leaveReunion(reunion._id);
+        toast.success('You have left the reunion');
+        router.push('/');
+      } catch (error: unknown) {
+        const err = error as Error;
+        toast.error(err.message);
+      }
+    });
   };
 
   return (
@@ -240,7 +261,7 @@ export function ReunionHeader({
                         ...groups.flatMap((g) => g.members),
                       ]
                         .filter(
-                          (p: Player, i, self) =>
+                          (p: Player, i: number, self: Player[]) =>
                             p._id !== currentUser._id &&
                             self.findIndex((s) => s._id === p._id) === i,
                         )

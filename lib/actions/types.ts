@@ -1,35 +1,12 @@
-export type ClerkUserPayload = {
-  id: string;
-  email_addresses: { email_address: string }[];
-  username?: string | null;
-  first_name?: string | null;
-  last_name?: string | null;
-  image_url: string;
-};
+import type { Player, UserGroup, MatchData } from '@/lib/types';
 
-export type UserDto = {
-  _id: string;
-  clerkId: string;
-  email: string;
-  username: string;
-  photo: string;
-};
+export type { ClerkUserPayload } from '@/lib/types';
 
-export type PlayerDto = UserDto;
+export type PlayerDto = Player;
 
-export type UserGroupDto = {
-  _id: string;
-  name: string;
-  members: PlayerDto[];
-};
+export type UserGroupDto = UserGroup;
 
-export type MatchDto = {
-  _id: string;
-  groupA: UserGroupDto;
-  groupB: UserGroupDto;
-  status: string;
-  winner?: string;
-};
+export type MatchDto = MatchData;
 
 export type ReunionSettingsDto = {
   gameMode: 'individual' | 'group';

@@ -41,7 +41,7 @@ export default async function Home() {
         </div>
 
         <SignedOut>
-          <div className='flex gap-4'>
+          <div className='flex flex-col sm:flex-row gap-4'>
             <SignInButton>
               <Button size='lg' className='text-lg px-8 cursor-pointer'>
                 Sign In

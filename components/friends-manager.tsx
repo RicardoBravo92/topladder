@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useTransition } from 'react';
+import { toast } from 'sonner';
 import {
   getFriends,
   getPendingRequests,
@@ -16,26 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { UserPlus, UserCheck, UserX, Users } from 'lucide-react';
-
-interface Player {
-  _id: string;
-  username: string;
-  photo: string;
-}
-
-interface FriendRequest {
-  _id: string;
-  requester: Player;
-}
-
-interface ReunionInvite {
-  _id: string;
-  inviter: Player;
-  reunion: {
-    _id: string;
-    name: string;
-  };
-}
+import type { Player, FriendRequest, ReunionInvite } from '@/lib/types';
 
 export function FriendsManager({ currentUser }: { currentUser: Player }) {
   const [friends, setFriends] = useState<Player[]>([]);
@@ -69,11 +51,11 @@ export function FriendsManager({ currentUser }: { currentUser: Player }) {
     startTransition(async () => {
       try {
         await sendFriendRequest(contactIdentifier);
-        alert('Request sent!');
+        toast.success('Friend request sent!');
         setContactIdentifier('');
       } catch (e: unknown) {
         const error = e as Error;
-        alert(error.message);
+        toast.error(error.message);
       } finally {
         setLoading(false);
       }
@@ -82,6 +64,7 @@ export function FriendsManager({ currentUser }: { currentUser: Player }) {
 
   const handleRespond = async (id: string, status: 'accepted' | 'rejected') => {
     await respondToFriendRequest(id, status);
+    toast.success(status === 'accepted' ? 'Friend request accepted!' : 'Friend request rejected');
     loadData();
   };
 
@@ -91,8 +74,10 @@ export function FriendsManager({ currentUser }: { currentUser: Player }) {
   ) => {
     const reunionId = await respondToReunionInvite(id, status);
     if (status === 'accepted' && reunionId) {
+      toast.success('Joined reunion!');
       router.push(`/reunion/${reunionId}`);
     } else {
+      toast.success('Invite ignored');
       loadData();
     }
   };

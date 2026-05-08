@@ -2,14 +2,15 @@
 
 import { connectToDatabase } from '@/lib/database';
 import User from '@/lib/models/user.model';
-import type { ClerkUserPayload, UserDto } from '@/lib/actions/types';
+import type { ClerkUserPayload } from '@/lib/actions/types';
+import type { Player } from '@/lib/types';
 
 export async function createUser(user: {
   clerkId: string;
   email: string;
   username: string;
   photo: string;
-}): Promise<UserDto> {
+}): Promise<Player> {
   try {
     await connectToDatabase();
     const newUser = await User.create(user);
@@ -26,7 +27,7 @@ export async function createUser(user: {
   }
 }
 
-export async function getUserById(clerkId: string): Promise<UserDto | null> {
+export async function getUserById(clerkId: string): Promise<Player | null> {
   try {
     await connectToDatabase();
     const user = await User.findOne({ clerkId }).lean();
@@ -44,7 +45,7 @@ export async function getUserById(clerkId: string): Promise<UserDto | null> {
   }
 }
 
-export async function syncUser(clerkUser: ClerkUserPayload): Promise<UserDto> {
+export async function syncUser(clerkUser: ClerkUserPayload): Promise<Player> {
   try {
     await connectToDatabase();
     let user = await User.findOne({ clerkId: clerkUser.id });

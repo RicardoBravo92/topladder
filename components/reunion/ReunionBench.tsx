@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { toast } from 'sonner';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -21,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useConfirm } from '@/hooks/use-confirm';
 import { kickPlayer } from '@/app/actions/reunion';
 import { createGroup } from '@/app/actions/game';
 import type { Player, ReunionData } from './types';
@@ -31,7 +33,7 @@ interface ReunionBenchProps {
   currentUser: Player;
   isAdmin: boolean;
   refresh: () => void;
-  isPendingQueueActivity: boolean; // parent transition state for form blocking
+  isPendingQueueActivity: boolean;
 }
 
 export function ReunionBench({
@@ -46,21 +48,28 @@ export function ReunionBench({
   const [p1, setP1] = useState('');
   const [p2, setP2] = useState('');
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const confirm = useConfirm();
 
   const isGroupMode = reunion.gameMode === 'group';
 
-  const handleKick = (targetUserId: string, targetName: string) => {
-    if (confirm(`Are you sure you want to kick ${targetName}?`)) {
-      startTransition(async () => {
-        try {
-          await kickPlayer(reunion._id, targetUserId);
-          refresh();
-        } catch (error: unknown) {
-          const err = error as Error;
-          alert(err.message);
-        }
-      });
-    }
+  const handleKick = async (targetUserId: string, targetName: string) => {
+    const ok = await confirm({
+      title: 'Kick Player',
+      description: `Are you sure you want to kick ${targetName}?`,
+      confirmText: 'Kick',
+      destructive: true,
+    });
+    if (!ok) return;
+    startTransition(async () => {
+      try {
+        await kickPlayer(reunion._id, targetUserId);
+        toast.success(`${targetName} has been kicked`);
+        refresh();
+      } catch (error: unknown) {
+        const err = error as Error;
+        toast.error(err.message);
+      }
+    });
   };
 
   const handleCreateGroup = () => {
@@ -74,7 +83,7 @@ export function ReunionBench({
         refresh();
       } catch (error: unknown) {
         const err = error as Error;
-        alert(err.message);
+        toast.error(err.message);
       }
     });
   };
@@ -84,14 +93,15 @@ export function ReunionBench({
     if (queueSection) {
       queueSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-    
+
     startTransition(async () => {
       try {
         await createGroup(reunion._id, [currentUser._id]);
+        toast.success('You are now in the queue!');
         refresh();
       } catch (error: unknown) {
         const err = error as Error;
-        alert(err.message);
+        toast.error(err.message);
       }
     });
   };
@@ -118,9 +128,7 @@ export function ReunionBench({
                       <AvatarImage src={p.photo} />
                       <AvatarFallback>{p.username[0]}</AvatarFallback>
                     </Avatar>
-                    <span className='text-sm font-medium'>
-                      {p.username}
-                    </span>
+                    <span className='text-sm font-medium'>{p.username}</span>
                   </div>
                   {isAdmin && p._id !== currentUser._id && (
                     <Button
