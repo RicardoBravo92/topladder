@@ -127,12 +127,12 @@ export function ReunionHeader({
   };
 
   return (
-    <header className='flex flex-col md:flex-row justify-between items-center gap-4 border-b border-border/50 pb-6'>
-      <div>
-        <h1 className='text-3xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent'>
+    <header className='flex flex-col md:flex-row justify-between items-center md:items-start gap-4 border-b border-border/50 pb-6'>
+      <div className="flex flex-col items-center md:items-start w-full md:w-auto">
+        <h1 className='text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent text-center md:text-left'>
           {reunion.name}
         </h1>
-        <div className='flex items-center gap-2 mt-2'>
+        <div className='flex flex-wrap items-center justify-center md:justify-start gap-2 mt-2'>
           <Badge variant='outline' className='text-muted-foreground'>
             Code: {reunion.code}
           </Badge>
@@ -351,7 +351,7 @@ export function ReunionHeader({
           </Dialog>
         </div>
       </div>
-      <div className='flex items-center gap-2'>
+      <div className='flex items-center justify-center md:justify-end gap-2 w-full md:w-auto'>
         <Button
           variant='ghost'
           size='sm'

@@ -75,7 +75,7 @@ export function ReunionDashboard({
   const isAdmin = reunion.admin._id === currentUser._id;
 
   return (
-    <div className='min-h-screen bg-background p-4 md:p-8 space-y-8'>
+    <div className='min-h-screen bg-background p-4 md:p-8 space-y-6 md:space-y-8'>
       <ReunionHeader
         reunion={reunion}
         currentUser={currentUser}
@@ -84,7 +84,7 @@ export function ReunionDashboard({
         playerIdsKey={playerIdsKey}
       />
 
-      <main className='grid grid-cols-1 md:grid-cols-12 gap-6 h-[calc(100vh-200px)]'>
+      <main className='grid grid-cols-1 md:grid-cols-12 gap-6 h-auto md:h-[calc(100vh-200px)]'>
         <ReunionBench
           reunion={reunion}
           bench={bench}
