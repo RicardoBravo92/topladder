@@ -1,6 +1,6 @@
 'use client';
 
-import { useTransition, useEffect, useRef } from 'react';
+import { useTransition, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ export function ReunionArena({
     }
   }, []);
 
-  const playNotificationSound = () => {
+  const playNotificationSound = useCallback(() => {
     try {
       const AudioContextClass =
         (window as unknown as Window & {
@@ -72,7 +72,7 @@ export function ReunionArena({
     } catch {
       // Audio API not available
     }
-  };
+  }, []);
 
   const prevMatchIdRef = useRef<string | null>(null);
 

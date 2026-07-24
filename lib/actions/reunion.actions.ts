@@ -13,7 +13,6 @@ import type {
   MatchDto,
   PlayerDto,
   ReunionDetailsDto,
-  ReunionSummaryDto,
   UserGroupDto,
 } from './types';
 

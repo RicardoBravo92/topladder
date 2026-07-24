@@ -3,6 +3,23 @@ import { syncUser } from '@/lib/actions/user.actions';
 import { ReunionDashboard } from '@/components/reunion-dashboard';
 import { currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
+import { Metadata } from 'next';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const reunion = await getReunionDetails(id);
+  if (!reunion) {
+    return { title: 'Reunion Not Found' };
+  }
+  return {
+    title: `${reunion.reunion.name} | Topladder`,
+    description: `Join ${reunion.reunion.name} on Topladder`,
+  };
+}
 
 export default async function ReunionPage({
   params,

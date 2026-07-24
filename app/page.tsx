@@ -5,6 +5,7 @@ import { FriendsManager } from '@/components/friends-manager';
 import { syncUser } from '@/lib/actions/user.actions';
 import { SignInButton, SignUpButton, SignedOut, SignedIn } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 
 export default async function Home() {
   const user = await currentUser();
@@ -30,10 +31,13 @@ export default async function Home() {
 
       <div className='z-10 flex flex-col items-center w-full max-w-4xl space-y-12'>
         <div className='text-center space-y-4'>
-          <img
+          <Image
             src='/TopLadderLogo.png'
             alt='TopLadder Logo'
+            width={96}
+            height={96}
             className='h-16 md:h-24 mx-auto animate-in zoom-in duration-700'
+            priority
           />
           <p className='text-muted-foreground text-xl md:text-2xl max-w-2xl mx-auto'>
             The premium queue management system for your matches.

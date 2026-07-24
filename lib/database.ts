@@ -8,10 +8,10 @@ interface MongooseConnection {
 }
 
 // Global scope for caching connection in development
-let cached: MongooseConnection = (global as any).mongoose;
+const cached: MongooseConnection = (global as unknown as { mongoose?: MongooseConnection }).mongoose || { conn: null, promise: null };
 
 if (!cached) {
-  cached = (global as any).mongoose = { conn: null, promise: null };
+  (global as unknown as { mongoose: MongooseConnection }).mongoose = cached;
 }
 
 export const connectToDatabase = async () => {
