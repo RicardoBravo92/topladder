@@ -10,6 +10,8 @@ const MatchSchema = new Schema({
   endedAt: { type: Date },
 });
 
+MatchSchema.index({ reunion: 1, status: 1 });
+
 const Match = models.Match || model("Match", MatchSchema);
 
 export default Match;

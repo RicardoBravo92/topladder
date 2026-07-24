@@ -43,7 +43,7 @@ export default async function ReunionPage({
   });
 
   // Ensure the user is added to the bench if they are entering via direct link
-  await ensureUserInReunion(id, syncedUser._id);
+  await ensureUserInReunion(id);
 
   const initialData = await getReunionDetails(id);
 

@@ -58,8 +58,8 @@ export function ReunionHeader({
   useEffect(() => {
     const loadSocial = async () => {
       const [f, p] = await Promise.all([
-        getFriends(currentUser._id),
-        getPendingRequests(currentUser._id),
+        getFriends(),
+        getPendingRequests(),
       ]);
       setFriends(f as Player[]);
       setPendingFriendRequests(p as FriendRequest[]);
@@ -67,7 +67,6 @@ export function ReunionHeader({
       const allPlayerIds = playerIdsKey ? playerIdsKey.split(',') : [];
       if (allPlayerIds.length > 0) {
         const statuses = await getFriendshipStatuses(
-          currentUser._id,
           allPlayerIds,
         );
         setFriendshipStatuses(statuses);
@@ -114,8 +113,8 @@ export function ReunionHeader({
             : 'Friend request rejected',
         );
         const [f, p] = await Promise.all([
-          getFriends(currentUser._id),
-          getPendingRequests(currentUser._id),
+          getFriends(),
+          getPendingRequests(),
         ]);
         setFriends(f as Player[]);
         setPendingFriendRequests(p as FriendRequest[]);

@@ -7,6 +7,8 @@ const GroupSchema = new Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+GroupSchema.index({ reunion: 1, members: 1 });
+
 const Group = models.Group || model("Group", GroupSchema);
 
 export default Group;

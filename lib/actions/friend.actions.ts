@@ -1,37 +1,31 @@
 'use server';
 
-import { currentUser } from '@clerk/nextjs/server';
 import { connectToDatabase } from '@/lib/database';
+import { getCurrentBackendUser } from '@/lib/auth';
 import Friend from '@/lib/models/friend.model';
 import User from '@/lib/models/user.model';
 import ReunionInvite from '@/lib/models/reunion-invite.model';
-import { syncUser } from './user.actions';
-
-async function getCurrentBackendUser() {
-  const clerkUser = await currentUser();
-  if (!clerkUser) throw new Error('Authentication required');
-  return syncUser({
-    id: clerkUser.id,
-    email_addresses: clerkUser.emailAddresses.map((e) => ({
-      email_address: e.emailAddress,
-    })),
-    username: clerkUser.username,
-    first_name: clerkUser.firstName,
-    last_name: clerkUser.lastName,
-    image_url: clerkUser.imageUrl,
-  });
-}
+import {
+  SendFriendRequestSchema,
+  FriendRequestIdSchema,
+  SendReunionInviteSchema,
+  ReunionInviteResponseSchema,
+  GetFriendshipStatusesSchema,
+  GetFriendsSchema,
+} from '@/lib/validation';
 
 export async function sendFriendRequest(recipientIdentifier: string) {
+  const parsed = SendFriendRequestSchema.parse({ recipientIdentifier });
   const backendUser = await getCurrentBackendUser();
+
   try {
     await connectToDatabase();
 
     const recipient = await User.findOne({
-      $or: [{ email: recipientIdentifier }, { username: recipientIdentifier }],
+      $or: [{ email: parsed.recipientIdentifier }, { username: parsed.recipientIdentifier }],
     });
     if (!recipient) throw new Error('User not found by email or username');
-    if (recipient._id.toString() === backendUser._id)
+    if (recipient._id.toString() === backendUser._id.toString())
       throw new Error('You cannot add yourself');
 
     const existing = await Friend.findOne({
@@ -54,20 +48,22 @@ export async function sendFriendRequest(recipientIdentifier: string) {
 }
 
 export async function sendFriendRequestById(recipientId: string) {
-  const currentUser = await getCurrentBackendUser();
+  const parsed = SendFriendRequestSchema.parse({ recipientIdentifier: recipientId });
+  const backendUser = await getCurrentBackendUser();
+
   try {
     await connectToDatabase();
 
     const existing = await Friend.findOne({
       $or: [
-        { requester: currentUser._id, recipient: recipientId },
-        { requester: recipientId, recipient: currentUser._id },
+        { requester: backendUser._id, recipient: parsed.recipientIdentifier },
+        { requester: parsed.recipientIdentifier, recipient: backendUser._id },
       ],
     });
     if (existing)
       throw new Error('Friendship already exists or request pending');
 
-    await Friend.create({ requester: currentUser._id, recipient: recipientId });
+    await Friend.create({ requester: backendUser._id, recipient: parsed.recipientIdentifier });
   } catch (error) {
     console.error('Error sending friend request by ID:', error);
     throw error;
@@ -75,22 +71,24 @@ export async function sendFriendRequestById(recipientId: string) {
 }
 
 export async function getFriendshipStatuses(
-  userId: string,
   targetIds: string[],
 ) {
+  const parsed = GetFriendshipStatusesSchema.parse({ targetIds });
+  const user = await getCurrentBackendUser();
+
   try {
     await connectToDatabase();
     const friendships = await Friend.find({
       $or: [
-        { requester: userId, recipient: { $in: targetIds } },
-        { recipient: userId, requester: { $in: targetIds } },
+        { requester: user._id, recipient: { $in: parsed.targetIds } },
+        { recipient: user._id, requester: { $in: parsed.targetIds } },
       ],
     });
 
     const statusMap: Record<string, string> = {};
     friendships.forEach((f) => {
       const otherId =
-        f.requester.toString() === userId
+        f.requester.toString() === user._id.toString()
           ? f.recipient.toString()
           : f.requester.toString();
       statusMap[otherId] = f.status;
@@ -102,11 +100,13 @@ export async function getFriendshipStatuses(
   }
 }
 
-export async function getFriends(userId: string) {
+export async function getFriends() {
+  const user = await getCurrentBackendUser();
+
   try {
     await connectToDatabase();
     const friendships = await Friend.find({
-      $or: [{ requester: userId }, { recipient: userId }],
+      $or: [{ requester: user._id }, { recipient: user._id }],
       status: 'accepted',
     })
       .populate('requester recipient')
@@ -119,7 +119,7 @@ export async function getFriends(userId: string) {
 
     return friendships.map((f) => {
       const friend =
-        f.requester._id.toString() === userId ? f.recipient : f.requester;
+        f.requester._id.toString() === user._id.toString() ? f.recipient : f.requester;
       return {
         _id: friend._id.toString(),
         username: friend.username,
@@ -132,10 +132,12 @@ export async function getFriends(userId: string) {
   }
 }
 
-export async function getPendingRequests(userId: string) {
+export async function getPendingRequests() {
+  const user = await getCurrentBackendUser();
+
   try {
     await connectToDatabase();
-    const requests = await Friend.find({ recipient: userId, status: 'pending' })
+    const requests = await Friend.find({ recipient: user._id, status: 'pending' })
       .populate('requester')
       .lean();
     return requests.map((request) => ({
@@ -156,12 +158,19 @@ export async function respondToFriendRequest(
   requestId: string,
   status: 'accepted' | 'rejected',
 ) {
+  const parsed = FriendRequestIdSchema.parse({ requestId, status });
+  const user = await getCurrentBackendUser();
+
   try {
     await connectToDatabase();
-    const request = await Friend.findById(requestId);
+    const request = await Friend.findById(parsed.requestId);
     if (!request) throw new Error('Request not found');
 
-    request.status = status;
+    if (request.recipient.toString() !== user._id.toString()) {
+      throw new Error('Unauthorized: You can only respond to requests sent to you');
+    }
+
+    request.status = parsed.status;
     await request.save();
   } catch (error) {
     console.error('Error responding to friend request:', error);
@@ -173,21 +182,23 @@ export async function sendReunionInvite(
   reunionId: string,
   recipientId: string,
 ) {
+  const parsed = SendReunionInviteSchema.parse({ reunionId, recipientId });
   const currentUser = await getCurrentBackendUser();
+
   try {
     await connectToDatabase();
 
     const existing = await ReunionInvite.findOne({
-      reunion: reunionId,
-      recipient: recipientId,
+      reunion: parsed.reunionId,
+      recipient: parsed.recipientId,
       status: 'pending',
     });
     if (existing) throw new Error('Invite already pending');
 
     await ReunionInvite.create({
-      reunion: reunionId,
+      reunion: parsed.reunionId,
       inviter: currentUser._id,
-      recipient: recipientId,
+      recipient: parsed.recipientId,
     });
   } catch (error) {
     console.error('Error sending reunion invite:', error);
@@ -195,11 +206,13 @@ export async function sendReunionInvite(
   }
 }
 
-export async function getMyReunionInvites(userId: string) {
+export async function getMyReunionInvites() {
+  const user = await getCurrentBackendUser();
+
   try {
     await connectToDatabase();
     const invites = await ReunionInvite.find({
-      recipient: userId,
+      recipient: user._id,
       status: 'pending',
     })
       .populate('reunion inviter')
@@ -226,12 +239,19 @@ export async function respondToReunionInvite(
   inviteId: string,
   status: 'accepted' | 'rejected',
 ) {
+  const parsed = ReunionInviteResponseSchema.parse({ inviteId, status });
+  const user = await getCurrentBackendUser();
+
   try {
     await connectToDatabase();
-    const invite = await ReunionInvite.findById(inviteId);
+    const invite = await ReunionInvite.findById(parsed.inviteId);
     if (!invite) throw new Error('Invite not found');
 
-    invite.status = status;
+    if (invite.recipient.toString() !== user._id.toString()) {
+      throw new Error('Unauthorized: You can only respond to your own invites');
+    }
+
+    invite.status = parsed.status;
     await invite.save();
     return invite.reunion.toString();
   } catch (error) {

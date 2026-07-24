@@ -1,48 +1,72 @@
 'use server';
 
 import { connectToDatabase } from '@/lib/database';
+import { getCurrentBackendUser } from '@/lib/auth';
 import Bench from '@/lib/models/bench.model';
 import Group from '@/lib/models/group.model';
 import Queue from '@/lib/models/queue.model';
 import Match from '@/lib/models/match.model';
 import User from '@/lib/models/user.model';
+import Reunion from '@/lib/models/reunion.model';
+import {
+  CreateGroupSchema,
+  StartMatchSchema,
+  FinishMatchSchema,
+  LeaveQueueSchema,
+} from '@/lib/validation';
+
+async function requireReunionAdmin(reunionId: string) {
+  const user = await getCurrentBackendUser();
+  const reunion = await Reunion.findById(reunionId);
+  if (!reunion) throw new Error('Reunion not found');
+  if (reunion.admin.toString() !== user._id.toString()) {
+    throw new Error('Unauthorized: Only the admin can perform this action');
+  }
+  return user;
+}
 
 export async function createGroup(reunionId: string, playerIds: string[]) {
+  const parsed = CreateGroupSchema.parse({ reunionId, playerIds });
+  const user = await getCurrentBackendUser();
+
   try {
     await connectToDatabase();
 
-    const players = await User.find({ _id: { $in: playerIds } }).lean();
-    const generatedName = players.map((p) => p.username).join(' & ');
+    const bench = await Bench.findOne({ reunion: parsed.reunionId });
+    if (!bench) throw new Error('Bench not found');
 
-    const bench = await Bench.findOne({ reunion: reunionId });
-    if (bench) {
-      // Optional backend safety check: Are they actually on the bench?
-      const areAllOnBench = playerIds.every((pid) =>
-        bench.players.some((bp: { toString: () => string }) => bp.toString() === pid),
-      );
-      if (!areAllOnBench) {
-        throw new Error('Some players are no longer on the bench. They might already be in the queue or a match.');
-      }
-
-      bench.players = bench.players.filter(
-        (p: { toString: () => string }) => !playerIds.includes(p.toString()),
-      );
-      await bench.save();
+    const areAllOnBench = parsed.playerIds.every((pid) =>
+      bench.players.some((bp: { toString: () => string }) => bp.toString() === pid),
+    );
+    if (!areAllOnBench) {
+      throw new Error('Some players are no longer on the bench.');
     }
 
+    const isUserInPlayers = parsed.playerIds.includes(user._id.toString());
+    if (!isUserInPlayers) {
+      throw new Error('You must be one of the players in the group');
+    }
+
+    const players = await User.find({ _id: { $in: parsed.playerIds } }).lean();
+    const generatedName = players.map((p) => p.username).join(' & ');
+
+    bench.players = bench.players.filter(
+      (p: { toString: () => string }) => !parsed.playerIds.includes(p.toString()),
+    );
+    await bench.save();
+
     const group = await Group.create({
-      reunion: reunionId,
+      reunion: parsed.reunionId,
       name: generatedName || 'New Group',
-      members: playerIds,
+      members: parsed.playerIds,
     });
 
-    const queue = await Queue.findOne({ reunion: reunionId });
+    const queue = await Queue.findOne({ reunion: parsed.reunionId });
     if (queue && !queue.groups.includes(group._id)) {
       queue.groups.push(group._id);
       await queue.save();
     }
 
-    // Populate the group to get member details
     const populatedGroup = await Group.findById(group._id)
       .populate('members')
       .lean();
@@ -63,34 +87,20 @@ export async function createGroup(reunionId: string, playerIds: string[]) {
   }
 }
 
-export async function addGroupToQueue(reunionId: string, groupId: string) {
-  try {
-    await connectToDatabase();
-    const queue = await Queue.findOne({ reunion: reunionId });
-
-    // Check if group is already in queue or playing?
-    // Simplifying: just push.
-    if (!queue.groups.includes(groupId)) {
-      queue.groups.push(groupId);
-      await queue.save();
-    }
-  } catch (error) {
-    console.error('Error queueing group:', error);
-    throw error;
-  }
-}
-
 export async function startMatch(reunionId: string) {
+  const parsed = StartMatchSchema.parse({ reunionId });
+  await requireReunionAdmin(parsed.reunionId);
+
   try {
     await connectToDatabase();
 
     const activeMatch = await Match.findOne({
-      reunion: reunionId,
+      reunion: parsed.reunionId,
       status: 'playing',
     });
     if (activeMatch) throw new Error('Match already in progress');
 
-    const queue = await Queue.findOne({ reunion: reunionId });
+    const queue = await Queue.findOne({ reunion: parsed.reunionId });
     if (!queue || queue.groups.length < 2)
       throw new Error('Not enough groups in queue to start');
 
@@ -99,13 +109,12 @@ export async function startMatch(reunionId: string) {
     await queue.save();
 
     const match = await Match.create({
-      reunion: reunionId,
+      reunion: parsed.reunionId,
       groupA,
       groupB,
       status: 'playing',
     });
 
-    // Populate the match to get group details
     const populatedMatch = await Match.findById(match._id)
       .populate({ path: 'groupA', populate: { path: 'members' } })
       .populate({ path: 'groupB', populate: { path: 'members' } })
@@ -145,48 +154,43 @@ export async function startMatch(reunionId: string) {
 }
 
 export async function finishMatch(matchId: string, winnerGroupId: string) {
+  const parsed = FinishMatchSchema.parse({ matchId, winnerGroupId });
+  await getCurrentBackendUser();
+
   try {
     await connectToDatabase();
 
-    const match = await Match.findById(matchId);
+    const match = await Match.findById(parsed.matchId);
     if (!match) throw new Error('Match not found');
+    if (match.status === 'finished') throw new Error('Match already finished');
+
+    const isValidGroup =
+      match.groupA.toString() === parsed.winnerGroupId ||
+      match.groupB.toString() === parsed.winnerGroupId;
+    if (!isValidGroup) throw new Error('Winner must be one of the match groups');
 
     match.status = 'finished';
-    match.winner = winnerGroupId;
+    match.winner = parsed.winnerGroupId;
     match.endedAt = new Date();
     await match.save();
 
-    // Identify loser
     const loserGroupId =
-      match.groupA.toString() === winnerGroupId ? match.groupB : match.groupA;
+      match.groupA.toString() === parsed.winnerGroupId ? match.groupB : match.groupA;
 
-    // 1. Loser goes to Queue end
     const queue = await Queue.findOne({ reunion: match.reunion });
     queue.groups.push(loserGroupId);
 
-    // 2. Winner stays? Draw next opponent.
-    // Check if queue has next opponent
     if (queue.groups.length > 0) {
-      // Usually, winner stays as 'GroupA' (King), Next is 'GroupB'.
-      // But wait, queue.groups includes the loser we just pushed?
-      // If we want "Next in line" to play, we should shift from HEAD.
-      // The loser we just pushed is at TAIL.
-
-      // However, we must ensure we don't pick the loser immediately if they are the only ones.
-      // If queue has only the loser, then they play again immediately.
-
       const nextOpponent = queue.groups.shift()!;
-
-      // Create new match
       await Match.create({
         reunion: match.reunion,
-        groupA: winnerGroupId, // Winner stays
-        groupB: nextOpponent, // Challenger
+        groupA: parsed.winnerGroupId,
+        groupB: nextOpponent,
         status: 'playing',
       });
       await queue.save();
     } else {
-      queue.groups.unshift(winnerGroupId);
+      queue.groups.unshift(parsed.winnerGroupId);
       await queue.save();
     }
   } catch (error) {
@@ -196,22 +200,27 @@ export async function finishMatch(matchId: string, winnerGroupId: string) {
 }
 
 export async function leaveQueue(reunionId: string, groupId: string) {
+  const parsed = LeaveQueueSchema.parse({ reunionId, groupId });
+  const user = await getCurrentBackendUser();
+
   try {
     await connectToDatabase();
 
-    // Remove group from queue
-    const queue = await Queue.findOne({ reunion: reunionId });
+    const group = await Group.findById(parsed.groupId);
+    if (!group) throw new Error('Group not found');
+
+    const isMember = group.members.some(
+      (m: { toString: () => string }) => m.toString() === user._id.toString(),
+    );
+    if (!isMember) throw new Error('Unauthorized: You are not a member of this group');
+
+    const queue = await Queue.findOne({ reunion: parsed.reunionId });
     if (queue) {
-      queue.groups = queue.groups.filter((g: { toString: () => string }) => g.toString() !== groupId);
+      queue.groups = queue.groups.filter((g: { toString: () => string }) => g.toString() !== parsed.groupId);
       await queue.save();
     }
 
-    // Get group members
-    const group = await Group.findById(groupId);
-    if (!group) return;
-
-    // Put members back to bench
-    const bench = await Bench.findOne({ reunion: reunionId });
+    const bench = await Bench.findOne({ reunion: parsed.reunionId });
     if (bench) {
       group.members.forEach((memberId: { toString: () => string }) => {
         const isAlreadyOnBench = bench.players.some((p: { toString: () => string }) => p.toString() === memberId.toString());
@@ -222,9 +231,7 @@ export async function leaveQueue(reunionId: string, groupId: string) {
       await bench.save();
     }
 
-    // Delete the group
-    await Group.findByIdAndDelete(groupId);
-
+    await Group.findByIdAndDelete(parsed.groupId);
   } catch (error) {
     console.error('Error leaving queue:', error);
     throw error;

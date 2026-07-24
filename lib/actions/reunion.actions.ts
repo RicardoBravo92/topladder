@@ -2,12 +2,18 @@
 
 import { currentUser } from '@clerk/nextjs/server';
 import { connectToDatabase } from '@/lib/database';
+import { getCurrentBackendUser } from '@/lib/auth';
 import Reunion from '@/lib/models/reunion.model';
 import Bench from '@/lib/models/bench.model';
 import Queue from '@/lib/models/queue.model';
 import Group from '@/lib/models/group.model';
 import Match from '@/lib/models/match.model';
 import { syncUser } from './user.actions';
+import {
+  CreateReunionSchema,
+  JoinReunionSchema,
+  ReunionIdSchema,
+} from '@/lib/validation';
 import type {
   ClerkUserPayload,
   MatchDto,
@@ -15,9 +21,10 @@ import type {
   ReunionDetailsDto,
   UserGroupDto,
 } from './types';
+import { randomBytes } from 'crypto';
 
 function generateCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+  return randomBytes(3).toString('hex').toUpperCase();
 }
 
 function buildClerkPayload(
@@ -35,12 +42,6 @@ function buildClerkPayload(
   };
 }
 
-async function getCurrentBackendUser() {
-  const clerkUser = await currentUser();
-  if (!clerkUser) throw new Error('Authentication required');
-  return syncUser(buildClerkPayload(clerkUser));
-}
-
 export async function createReunion(
   name: string,
   settings: {
@@ -50,6 +51,7 @@ export async function createReunion(
     playersContinue?: number;
   },
 ) {
+  const parsed = CreateReunionSchema.parse({ name, settings });
   const clerkUser = await currentUser();
   if (!clerkUser) throw new Error('Authentication required');
 
@@ -60,13 +62,13 @@ export async function createReunion(
     const code = generateCode();
 
     const reunion = await Reunion.create({
-      name,
+      name: parsed.name,
       code,
       admin: user._id,
-      gameMode: settings.gameMode,
-      groupSize: settings.groupSize ?? 2,
-      playersAtOnce: settings.playersAtOnce ?? 1,
-      playersContinue: settings.playersContinue ?? 0,
+      gameMode: parsed.settings.gameMode,
+      groupSize: parsed.settings.groupSize ?? 2,
+      playersAtOnce: parsed.settings.playersAtOnce ?? 1,
+      playersContinue: parsed.settings.playersContinue ?? 0,
     });
 
     await Bench.create({ reunion: reunion._id, players: [user._id] });
@@ -92,6 +94,7 @@ export async function createReunion(
 }
 
 export async function joinReunion(code: string) {
+  const parsed = JoinReunionSchema.parse({ code });
   const clerkUser = await currentUser();
   if (!clerkUser) throw new Error('Authentication required');
 
@@ -99,7 +102,7 @@ export async function joinReunion(code: string) {
     await connectToDatabase();
 
     const user = await syncUser(buildClerkPayload(clerkUser));
-    const reunion = await Reunion.findOne({ code, isActive: true }).lean();
+    const reunion = await Reunion.findOne({ code: parsed.code, isActive: true }).lean();
 
     if (!reunion) {
       throw new Error('Reunion not found or inactive');
@@ -156,30 +159,31 @@ export async function joinReunion(code: string) {
 export async function getReunionDetails(
   reunionId: string,
 ): Promise<ReunionDetailsDto | null> {
+  const parsed = ReunionIdSchema.parse({ reunionId });
+
   try {
     await connectToDatabase();
 
-    const reunion = await Reunion.findById(reunionId).populate('admin').lean();
+    const reunion = await Reunion.findById(parsed.reunionId).populate('admin').lean();
     if (!reunion) return null;
 
-    const bench = await Bench.findOne({ reunion: reunionId })
+    const bench = await Bench.findOne({ reunion: parsed.reunionId })
       .populate('players')
       .lean<{ players: PlayerDto[] } | null>();
-    const groups = await Group.find({ reunion: reunionId })
+    const groups = await Group.find({ reunion: parsed.reunionId })
       .populate('members')
       .lean<UserGroupDto[]>();
-    const queue = await Queue.findOne({ reunion: reunionId })
+    const queue = await Queue.findOne({ reunion: parsed.reunionId })
       .populate({ path: 'groups', populate: { path: 'members' } })
       .lean<{ groups: UserGroupDto[] } | null>();
     const activeMatch = await Match.findOne({
-      reunion: reunionId,
+      reunion: parsed.reunionId,
       status: 'playing',
     })
       .populate({ path: 'groupA', populate: { path: 'members' } })
       .populate({ path: 'groupB', populate: { path: 'members' } })
       .lean<MatchDto | null>();
 
-    // Convert ObjectIds to strings
     const reunionData = {
       _id: reunion._id.toString(),
       name: reunion.name,
@@ -325,28 +329,32 @@ async function leaveReunionById(reunionId: string, userId: string) {
 }
 
 export async function leaveReunion(reunionId: string) {
+  const parsed = ReunionIdSchema.parse({ reunionId });
   const user = await getCurrentBackendUser();
-  return leaveReunionById(reunionId, user._id);
+  return leaveReunionById(parsed.reunionId, user._id);
 }
 
-export async function ensureUserInReunion(reunionId: string, userId: string) {
+export async function ensureUserInReunion(reunionId: string) {
+  const parsed = ReunionIdSchema.parse({ reunionId });
+  const user = await getCurrentBackendUser();
+
   try {
     await connectToDatabase();
 
     const isInGroup = await Group.exists({
-      reunion: reunionId,
-      members: userId,
+      reunion: parsed.reunionId,
+      members: user._id,
     });
     if (isInGroup) return;
 
-    const bench = await Bench.findOne({ reunion: reunionId });
+    const bench = await Bench.findOne({ reunion: parsed.reunionId });
     if (!bench) return;
 
     const isPlayerInBench = bench.players.some(
-      (p: { toString: () => string }) => p.toString() === userId.toString(),
+      (p: { toString: () => string }) => p.toString() === user._id.toString(),
     );
     if (!isPlayerInBench) {
-      bench.players.push(userId);
+      bench.players.push(user._id);
       await bench.save();
     }
   } catch (error) {
@@ -355,18 +363,18 @@ export async function ensureUserInReunion(reunionId: string, userId: string) {
 }
 
 export async function kickPlayer(reunionId: string, targetUserId: string) {
+  const parsed = ReunionIdSchema.parse({ reunionId });
   const user = await getCurrentBackendUser();
-  const adminId = user._id;
 
   try {
     await connectToDatabase();
 
-    const reunion = await Reunion.findById(reunionId);
-    if (!reunion || reunion.admin.toString() !== adminId) {
+    const reunion = await Reunion.findById(parsed.reunionId);
+    if (!reunion || reunion.admin.toString() !== user._id.toString()) {
       throw new Error('Unauthorized: Only admins can kick players');
     }
 
-    await leaveReunionById(reunionId, targetUserId);
+    await leaveReunionById(parsed.reunionId, targetUserId);
   } catch (error) {
     console.error('Error kicking player:', error);
     throw error;

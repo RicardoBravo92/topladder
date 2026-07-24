@@ -30,14 +30,14 @@ export function FriendsManager({ currentUser }: { currentUser: Player }) {
 
   const loadData = useCallback(async () => {
     const [f, p, ri] = await Promise.all([
-      getFriends(currentUser._id),
-      getPendingRequests(currentUser._id),
-      getMyReunionInvites(currentUser._id),
+      getFriends(),
+      getPendingRequests(),
+      getMyReunionInvites(),
     ]);
     setFriends(f);
     setPending(p);
     setReunionInvites(ri);
-  }, [currentUser._id]);
+  }, []);
 
   useEffect(() => {
     loadData();
