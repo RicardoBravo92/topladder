@@ -36,7 +36,7 @@ export default async function Home() {
             alt='TopLadder Logo'
             width={96}
             height={96}
-            className='h-16 md:h-24 mx-auto animate-in zoom-in duration-700'
+            className='h-16 md:h-24 mx-auto animate-scale-in-slow'
             priority
           />
           <p className='text-muted-foreground text-xl md:text-2xl max-w-2xl mx-auto'>
@@ -64,7 +64,7 @@ export default async function Home() {
         </SignedOut>
 
         <SignedIn>
-          <div className='grid gap-8 lg:grid-cols-3 w-full animate-in slide-in-from-bottom-10 fade-in duration-700'>
+          <div className='grid gap-8 lg:grid-cols-3 w-full animate-rise-in'>
             <div className='lg:col-span-2 grid gap-8 md:grid-cols-2'>
               <CreateReunionForm />
               <JoinReunionForm />
