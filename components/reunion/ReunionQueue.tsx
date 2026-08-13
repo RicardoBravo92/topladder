@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Clock, LogOut } from 'lucide-react';
 import { useConfirm } from '@/hooks/use-confirm';
-import { leaveQueue } from '@/app/actions/game';
+import { leaveQueue } from '@/lib/actions/game.actions';
 import type { Player, ReunionData, UserGroup } from './types';
 
 interface ReunionQueueProps {

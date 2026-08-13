@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Swords, Play } from 'lucide-react';
-import { startMatch, finishMatch } from '@/app/actions/game';
+import { startMatch, finishMatch } from '@/lib/actions/game.actions';
 import type { Player, ReunionData, MatchData } from './types';
 
 interface ReunionArenaProps {

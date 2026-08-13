@@ -9,7 +9,7 @@ import {
   sendFriendRequest,
   getMyReunionInvites,
   respondToReunionInvite,
-} from '@/app/actions/friend';
+} from '@/lib/actions/friend.actions';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

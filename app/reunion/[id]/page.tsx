@@ -1,4 +1,4 @@
-import { getReunionDetails, ensureUserInReunion } from '@/app/actions/reunion';
+import { getReunionDetails, ensureUserInReunion } from '@/lib/actions/reunion.actions';
 import { syncUser } from '@/lib/actions/user.actions';
 import { ReunionDashboard } from '@/components/reunion-dashboard';
 import { currentUser } from '@clerk/nextjs/server';

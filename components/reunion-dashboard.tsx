@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { getReunionDetails } from '@/app/actions/reunion';
+import { getReunionDetails } from '@/lib/actions/reunion.actions';
 import type { Player, ReunionData } from './reunion/types';
 import { ReunionHeader } from './reunion/ReunionHeader';
 import { ReunionBench } from './reunion/ReunionBench';

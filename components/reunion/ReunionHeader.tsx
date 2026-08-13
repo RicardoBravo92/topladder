@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Users, UserPlus, DoorOpen, UserCheck, QrCode } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { useConfirm } from '@/hooks/use-confirm';
-import { leaveReunion } from '@/app/actions/reunion';
+import { leaveReunion } from '@/lib/actions/reunion.actions';
 import {
   getFriends,
   sendFriendRequestById,
@@ -25,7 +25,7 @@ import {
   sendReunionInvite,
   getPendingRequests,
   respondToFriendRequest,
-} from '@/app/actions/friend';
+} from '@/lib/actions/friend.actions';
 import type { Player, FriendRequest, ReunionData } from './types';
 
 interface ReunionHeaderProps {

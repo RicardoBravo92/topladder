@@ -2,7 +2,7 @@
 
 import { useUser } from '@clerk/nextjs';
 import { useState, useTransition } from 'react';
-import { createReunion } from '@/app/actions/reunion';
+import { createReunion } from '@/lib/actions/reunion.actions';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';

@@ -23,8 +23,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useConfirm } from '@/hooks/use-confirm';
-import { kickPlayer } from '@/app/actions/reunion';
-import { createGroup } from '@/app/actions/game';
+import { kickPlayer } from '@/lib/actions/reunion.actions';
+import { createGroup } from '@/lib/actions/game.actions';
 import type { Player, ReunionData } from './types';
 
 interface ReunionBenchProps {
