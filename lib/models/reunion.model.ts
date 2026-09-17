@@ -17,6 +17,8 @@ const ReunionSchema = new Schema({
   isActive: { type: Boolean, default: true },
 });
 
+ReunionSchema.index({ admin: 1, createdAt: -1 });
+
 const Reunion = models.Reunion || model('Reunion', ReunionSchema);
 
 export default Reunion;

@@ -13,10 +13,15 @@ import {
   GetFriendshipStatusesSchema,
   GetFriendsSchema,
 } from '@/lib/validation';
+import {
+  friendRequestLimiter,
+  reunionInviteLimiter,
+} from '@/lib/rate-limit';
 
 export async function sendFriendRequest(recipientIdentifier: string) {
   const parsed = SendFriendRequestSchema.parse({ recipientIdentifier });
   const backendUser = await getCurrentBackendUser();
+  friendRequestLimiter.check(backendUser._id.toString());
 
   try {
     await connectToDatabase();
@@ -50,6 +55,7 @@ export async function sendFriendRequest(recipientIdentifier: string) {
 export async function sendFriendRequestById(recipientId: string) {
   const parsed = SendFriendRequestSchema.parse({ recipientIdentifier: recipientId });
   const backendUser = await getCurrentBackendUser();
+  friendRequestLimiter.check(backendUser._id.toString());
 
   try {
     await connectToDatabase();
@@ -184,6 +190,7 @@ export async function sendReunionInvite(
 ) {
   const parsed = SendReunionInviteSchema.parse({ reunionId, recipientId });
   const currentUser = await getCurrentBackendUser();
+  reunionInviteLimiter.check(currentUser._id.toString());
 
   try {
     await connectToDatabase();

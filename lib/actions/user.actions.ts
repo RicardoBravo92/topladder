@@ -21,7 +21,7 @@ export async function createUser(user: {
       photo: newUser.photo,
     };
   } catch (error) {
-    console.log(error);
+    console.error(error);
     throw new Error('Failed to create user');
   }
 }
@@ -39,7 +39,7 @@ export async function getUserById(clerkId: string): Promise<Player | null> {
       photo: user.photo,
     };
   } catch (error) {
-    console.log(error);
+    console.error(error);
     throw new Error('Failed to get user');
   }
 }

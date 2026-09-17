@@ -27,6 +27,7 @@ import type {
   MatchDto,
   ReunionDetailsDto,
 } from '@/lib/types';
+import { createReunionLimiter } from '@/lib/rate-limit';
 import { randomBytes } from 'crypto';
 
 function generateCode() {
@@ -50,6 +51,7 @@ export async function createReunion(
     await connectToDatabase();
 
     const user = await syncUser(buildClerkPayload(clerkUser));
+    createReunionLimiter.check(user._id.toString());
     const code = generateCode();
 
     const reunion = await Reunion.create({
