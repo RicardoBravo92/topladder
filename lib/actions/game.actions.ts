@@ -14,6 +14,7 @@ import {
   FinishMatchSchema,
   LeaveQueueSchema,
 } from '@/lib/validation';
+import { toUserGroupDto, toMatchDto } from '@/lib/types';
 
 async function requireReunionAdmin(reunionId: string) {
   const user = await getCurrentBackendUser();
@@ -70,17 +71,7 @@ export async function createGroup(reunionId: string, playerIds: string[]) {
     const populatedGroup = await Group.findById(group._id)
       .populate('members')
       .lean();
-    return {
-      _id: populatedGroup!._id.toString(),
-      name: populatedGroup!.name,
-      members: populatedGroup!.members.map((member: { _id: { toString: () => string }; clerkId: string; email: string; username: string; photo: string }) => ({
-        _id: member._id.toString(),
-        clerkId: member.clerkId,
-        email: member.email,
-        username: member.username,
-        photo: member.photo,
-      })),
-    };
+    return toUserGroupDto(populatedGroup!);
   } catch (error) {
     console.error('Error creating group:', error);
     throw error;
@@ -120,33 +111,7 @@ export async function startMatch(reunionId: string) {
       .populate({ path: 'groupB', populate: { path: 'members' } })
       .lean();
 
-    return {
-      _id: populatedMatch!._id.toString(),
-      groupA: {
-        _id: populatedMatch!.groupA._id.toString(),
-        name: populatedMatch!.groupA.name,
-        members: populatedMatch!.groupA.members.map((member: { _id: { toString: () => string }; clerkId: string; email: string; username: string; photo: string }) => ({
-          _id: member._id.toString(),
-          clerkId: member.clerkId,
-          email: member.email,
-          username: member.username,
-          photo: member.photo,
-        })),
-      },
-      groupB: {
-        _id: populatedMatch!.groupB._id.toString(),
-        name: populatedMatch!.groupB.name,
-        members: populatedMatch!.groupB.members.map((member: { _id: { toString: () => string }; clerkId: string; email: string; username: string; photo: string }) => ({
-          _id: member._id.toString(),
-          clerkId: member.clerkId,
-          email: member.email,
-          username: member.username,
-          photo: member.photo,
-        })),
-      },
-      status: populatedMatch!.status,
-      winner: populatedMatch!.winner?.toString(),
-    };
+    return toMatchDto(populatedMatch!);
   } catch (error) {
     console.error('Error starting match:', error);
     throw error;

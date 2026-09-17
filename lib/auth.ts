@@ -8,7 +8,7 @@ export async function getCurrentBackendUser() {
   return syncUser(buildClerkPayload(clerkUser));
 }
 
-function buildClerkPayload(
+export function buildClerkPayload(
   user: NonNullable<Awaited<ReturnType<typeof currentUser>>>,
 ): ClerkUserPayload {
   return {

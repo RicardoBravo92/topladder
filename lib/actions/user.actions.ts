@@ -2,8 +2,7 @@
 
 import { connectToDatabase } from '@/lib/database';
 import User from '@/lib/models/user.model';
-import type { ClerkUserPayload } from '@/lib/actions/types';
-import type { Player } from '@/lib/types';
+import type { ClerkUserPayload, Player } from '@/lib/types';
 
 export async function createUser(user: {
   clerkId: string;

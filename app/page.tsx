@@ -3,24 +3,16 @@ import { CreateReunionForm } from '@/components/create-reunion-form';
 import { JoinReunionForm } from '@/components/join-reunion-form';
 import { FriendsManager } from '@/components/friends-manager';
 import { syncUser } from '@/lib/actions/user.actions';
-import { SignInButton, SignUpButton, SignedOut, SignedIn } from '@clerk/nextjs';
+import { SignInButton, SignUpButton, SignedOut, SignedIn, UserButton } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
+import { buildClerkPayload } from '@/lib/auth';
 import Image from 'next/image';
 
 export default async function Home() {
   const user = await currentUser();
   let dbUser = null;
   if (user) {
-    dbUser = await syncUser({
-      id: user.id,
-      email_addresses: user.emailAddresses.map((e) => ({
-        email_address: e.emailAddress,
-      })),
-      username: user.username,
-      first_name: user.firstName,
-      last_name: user.lastName,
-      image_url: user.imageUrl,
-    });
+    dbUser = await syncUser(buildClerkPayload(user));
   }
 
   return (
@@ -30,6 +22,21 @@ export default async function Home() {
       <div className='absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/20 rounded-full blur-[100px]' />
 
       <div className='z-10 flex flex-col items-center w-full max-w-4xl space-y-12'>
+        {/* Global header for all pages except reunion dashboard */}
+        <header className='absolute top-4 right-4 flex items-center gap-2 sm:gap-4 h-16'>
+          <SignedOut>
+            <SignInButton />
+            <SignUpButton>
+              <button className='bg-[#6c47ff] text-white rounded-full font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 cursor-pointer'>
+                Sign Up
+              </button>
+            </SignUpButton>
+          </SignedOut>
+          <SignedIn>
+            <UserButton />
+          </SignedIn>
+        </header>
+
         <div className='text-center space-y-4'>
           <Image
             src='/TopLadderLogo.png'
@@ -69,7 +76,7 @@ export default async function Home() {
               <CreateReunionForm />
               <JoinReunionForm />
             </div>
-            <FriendsManager currentUser={dbUser!} />
+            {dbUser && <FriendsManager currentUser={dbUser} />}
           </div>
           <p className='text-sm text-muted-foreground'>
             Logged in as {user?.firstName || user?.username}

@@ -9,37 +9,28 @@ import Queue from '@/lib/models/queue.model';
 import Group from '@/lib/models/group.model';
 import Match from '@/lib/models/match.model';
 import { syncUser } from './user.actions';
+import { buildClerkPayload } from '@/lib/auth';
 import {
   CreateReunionSchema,
   JoinReunionSchema,
   ReunionIdSchema,
 } from '@/lib/validation';
+import {
+  toPlayerDto,
+  toUserGroupDto,
+  toMatchDto,
+  toReunionSummaryDto,
+} from '@/lib/types';
 import type {
-  ClerkUserPayload,
-  MatchDto,
   PlayerDto,
-  ReunionDetailsDto,
   UserGroupDto,
-} from './types';
+  MatchDto,
+  ReunionDetailsDto,
+} from '@/lib/types';
 import { randomBytes } from 'crypto';
 
 function generateCode() {
   return randomBytes(3).toString('hex').toUpperCase();
-}
-
-function buildClerkPayload(
-  user: NonNullable<Awaited<ReturnType<typeof currentUser>>>,
-): ClerkUserPayload {
-  return {
-    id: user.id,
-    email_addresses: user.emailAddresses.map((e) => ({
-      email_address: e.emailAddress,
-    })),
-    username: user.username,
-    first_name: user.firstName,
-    last_name: user.lastName,
-    image_url: user.imageUrl,
-  };
 }
 
 export async function createReunion(
@@ -74,19 +65,7 @@ export async function createReunion(
     await Bench.create({ reunion: reunion._id, players: [user._id] });
     await Queue.create({ reunion: reunion._id, groups: [] });
 
-    const reunionObject = reunion.toObject();
-    return {
-      _id: reunionObject._id.toString(),
-      name: reunionObject.name,
-      code: reunionObject.code,
-      isActive: reunionObject.isActive,
-      admin: { _id: reunionObject.admin.toString() },
-      createdAt: reunionObject.createdAt.toISOString(),
-      gameMode: reunionObject.gameMode,
-      groupSize: reunionObject.groupSize,
-      playersAtOnce: reunionObject.playersAtOnce,
-      playersContinue: reunionObject.playersContinue,
-    };
+    return toReunionSummaryDto(reunion.toObject());
   } catch (error) {
     console.error('Error creating reunion:', error);
     throw new Error('Failed to create reunion');
@@ -113,18 +92,7 @@ export async function joinReunion(code: string) {
       members: user._id,
     });
     if (isInGroup) {
-      return {
-        _id: reunion._id.toString(),
-        name: reunion.name,
-        code: reunion.code,
-        isActive: reunion.isActive,
-        admin: { _id: (reunion.admin as { toString: () => string }).toString() },
-        createdAt: reunion.createdAt.toISOString(),
-        gameMode: reunion.gameMode,
-        groupSize: reunion.groupSize,
-        playersAtOnce: reunion.playersAtOnce,
-        playersContinue: reunion.playersContinue,
-      };
+      return toReunionSummaryDto(reunion);
     }
 
     const bench = await Bench.findOne({ reunion: reunion._id });
@@ -138,18 +106,7 @@ export async function joinReunion(code: string) {
       await bench.save();
     }
 
-    return {
-      _id: reunion._id.toString(),
-      name: reunion.name,
-      code: reunion.code,
-      isActive: reunion.isActive,
-      admin: { _id: (reunion.admin as { toString: () => string }).toString() },
-      createdAt: reunion.createdAt.toISOString(),
-      gameMode: reunion.gameMode,
-      groupSize: reunion.groupSize,
-      playersAtOnce: reunion.playersAtOnce,
-      playersContinue: reunion.playersContinue,
-    };
+    return toReunionSummaryDto(reunion);
   } catch (error) {
     console.error('Error joining reunion:', error);
     throw error;
@@ -184,95 +141,16 @@ export async function getReunionDetails(
       .populate({ path: 'groupB', populate: { path: 'members' } })
       .lean<MatchDto | null>();
 
-    const reunionData = {
-      _id: reunion._id.toString(),
-      name: reunion.name,
-      code: reunion.code,
-      isActive: reunion.isActive,
-      admin: { _id: (reunion.admin as { _id: { toString: () => string } })._id.toString() },
-      createdAt: reunion.createdAt.toISOString(),
-      gameMode: reunion.gameMode,
-      groupSize: reunion.groupSize,
-      playersAtOnce: reunion.playersAtOnce,
-      playersContinue: reunion.playersContinue,
-    };
-
-    const benchData = bench
-      ? {
-          players: bench.players.map((player) => ({
-            _id: player._id.toString(),
-            clerkId: player.clerkId,
-            email: player.email,
-            username: player.username,
-            photo: player.photo,
-          })),
-        }
-      : { players: [] };
-
-    const groupsData = groups.map((group) => ({
-      _id: group._id.toString(),
-      name: group.name,
-      members: group.members.map((member) => ({
-        _id: member._id.toString(),
-        clerkId: member.clerkId,
-        email: member.email,
-        username: member.username,
-        photo: member.photo,
-      })),
-    }));
-
-    const queueData = queue
-      ? {
-          groups: queue.groups.map((group) => ({
-            _id: group._id.toString(),
-            name: group.name,
-            members: group.members.map((member) => ({
-              _id: member._id.toString(),
-              clerkId: member.clerkId,
-              email: member.email,
-              username: member.username,
-              photo: member.photo,
-            })),
-          })),
-        }
-      : { groups: [] };
-
-    const activeMatchData = activeMatch
-      ? {
-          _id: activeMatch._id.toString(),
-          groupA: {
-            _id: activeMatch.groupA._id.toString(),
-            name: activeMatch.groupA.name,
-            members: activeMatch.groupA.members.map((member) => ({
-              _id: member._id.toString(),
-              clerkId: member.clerkId,
-              email: member.email,
-              username: member.username,
-              photo: member.photo,
-            })),
-          },
-          groupB: {
-            _id: activeMatch.groupB._id.toString(),
-            name: activeMatch.groupB.name,
-            members: activeMatch.groupB.members.map((member) => ({
-              _id: member._id.toString(),
-              clerkId: member.clerkId,
-              email: member.email,
-              username: member.username,
-              photo: member.photo,
-            })),
-          },
-          status: activeMatch.status,
-          winner: activeMatch.winner?.toString(),
-        }
-      : null;
-
     return {
-      reunion: reunionData,
-      bench: benchData,
-      groups: groupsData,
-      queue: queueData,
-      activeMatch: activeMatchData,
+      reunion: toReunionSummaryDto(reunion),
+      bench: bench
+        ? { players: bench.players.map(toPlayerDto) }
+        : { players: [] },
+      groups: groups.map(toUserGroupDto),
+      queue: queue
+        ? { groups: queue.groups.map(toUserGroupDto) }
+        : { groups: [] },
+      activeMatch: activeMatch ? toMatchDto(activeMatch) : null,
     };
   } catch (error) {
     console.error('Error fetching reunion details:', error);

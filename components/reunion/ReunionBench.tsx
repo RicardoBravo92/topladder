@@ -33,7 +33,6 @@ interface ReunionBenchProps {
   currentUser: Player;
   isAdmin: boolean;
   refresh: () => void;
-  isPendingQueueActivity: boolean;
 }
 
 export function ReunionBench({
@@ -42,7 +41,6 @@ export function ReunionBench({
   currentUser,
   isAdmin,
   refresh,
-  isPendingQueueActivity,
 }: ReunionBenchProps) {
   const [isPending, startTransition] = useTransition();
   const [p1, setP1] = useState('');
@@ -157,8 +155,8 @@ export function ReunionBench({
         <Dialog open={createGroupOpen} onOpenChange={setCreateGroupOpen}>
           <DialogTrigger asChild>
             <Button
-              className='w-full bg-gradient-to-r from-primary to-purple-600 hover:opacity-90 shadow-lg shadow-primary/20 cursor-pointer'
-              disabled={isPending || isPendingQueueActivity}
+              className='w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/20 cursor-pointer'
+              disabled={isPending}
             >
               <UserPlus className='mr-2 h-4 w-4' /> Form Group
             </Button>
@@ -219,8 +217,8 @@ export function ReunionBench({
       ) : bench.players.some((p: Player) => p._id === currentUser._id) ? (
         <Button
           onClick={handleGoToQueue}
-          disabled={isPending || isPendingQueueActivity}
-          className='w-full bg-gradient-to-r from-primary to-purple-600 hover:opacity-90 shadow-lg shadow-primary/20 cursor-pointer'
+          disabled={isPending}
+          className='w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/20 cursor-pointer'
         >
           Go to Queue
         </Button>

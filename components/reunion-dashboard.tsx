@@ -91,7 +91,6 @@ export function ReunionDashboard({
           currentUser={currentUser}
           isAdmin={isAdmin}
           refresh={refresh}
-          isPendingQueueActivity={false}
         />
 
         <div id='queue-section' className='md:col-span-6 flex flex-col gap-6'>

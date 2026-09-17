@@ -1,9 +1,10 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition } from 'react';
 import { joinReunion } from '@/lib/actions/reunion.actions';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -12,15 +13,10 @@ import { Label } from '@/components/ui/label';
 export function JoinReunionForm() {
   const { user } = useUser();
   const router = useRouter();
-  const [code, setCode] = useState('');
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const codeParam = params.get('code');
-      if (codeParam) setCode(codeParam);
-    }
-  }, []);
+  const searchParams = useSearchParams();
+  const [code, setCode] = useState(
+    () => searchParams.get('code') ?? '',
+  );
   const [loading, setLoading] = useState(false);
   const [, startTransition] = useTransition();
 
@@ -33,7 +29,7 @@ export function JoinReunionForm() {
         router.push(`/reunion/${res._id}`);
       } catch (e) {
         console.error(e);
-        alert('Failed to join. Check code.');
+        toast.error('Failed to join. Check the code and try again.');
       } finally {
         setLoading(false);
       }
